@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-) 
+)
 
 type AttractionFileRecord struct {
 	CityName    string
@@ -21,7 +21,7 @@ type AttractionFileRecord struct {
 }
 
 func FetchAttractionFromEuropeanTour(filePath string) ([]AttractionFileRecord, error) {
-	log.Printf("Reading and processing European Tour Attractions from: %s", filePath)
+	log.Printf("Reading and processing Attractions data from: %s", filePath)
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -35,7 +35,6 @@ func FetchAttractionFromEuropeanTour(filePath string) ([]AttractionFileRecord, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CSV records: %w", err)
 	}
-
 
 	const (
 		colName        = 0
@@ -60,7 +59,6 @@ func FetchAttractionFromEuropeanTour(filePath string) ([]AttractionFileRecord, e
 		name := strings.TrimSpace(record[colName])
 		category := strings.TrimSpace(record[colCategory])
 		description := strings.TrimSpace(record[colDescription])
-
 		lat, _ := strconv.ParseFloat(record[colLat], 64)
 		lon, _ := strconv.ParseFloat(record[colLon], 64)
 
@@ -94,7 +92,5 @@ func FetchAttractionFromEuropeanTour(filePath string) ([]AttractionFileRecord, e
 
 		allAttractions = append(allAttractions, newAttraction)
 	}
-
-	log.Printf("Finished processing. Total %d attractions found.", len(allAttractions))
 	return allAttractions, nil
 }

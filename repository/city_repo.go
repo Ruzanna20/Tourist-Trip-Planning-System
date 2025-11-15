@@ -18,65 +18,47 @@ func NewCityRepository(db *sql.DB) *CityRepository {
 	}
 }
 
-func (r *CityRepository) Insert(city *models.City) (int, error) {
-	existing, err := r.GetByName(city.Name, city.CountryID)
-	if err != nil {
-		return 0, err
-	}
-	if existing != nil {
-		return existing.CityID, nil
-	}
-	query := `INSERT INTO cities (country_id,name,latitude,longitude,description,created_at)
-			  VALUES ($1,$2,$3,$4,$5,$6)
-			  RETURNING city_id;`
-
-	var lastInsertID int
+func (r *CityRepository) Upsert(city *models.City) (int, error) {
+	query := `INSERT INTO cities  (country_id, name, latitude, longitude, description, created_at, updated_at) 
+			VALUES ($1, $2, $3, $4, $5, $6,$7) 
+			ON CONFLICT (name, country_id) DO UPDATE 
+			SET 
+				latitude = EXCLUDED.latitude, 
+				longitude = EXCLUDED.longitude,
+				description = EXCLUDED.description,
+				updated_at = NOW() AT TIME ZONE 'Asia/Yerevan'
+			RETURNING city_id;`
 
 	if city.Description == "" {
 		city.Description = "No description provided."
 	}
 
-	err = r.db.QueryRow(
+	if city.CreatedAt.IsZero() {
+		city.CreatedAt = time.Now()
+	}
+
+	if city.UpdatedAt.IsZero() {
+		city.UpdatedAt = time.Now()
+	}
+
+	var cityID int
+	err := r.db.QueryRow(
 		query,
 		city.CountryID,
 		city.Name,
 		city.Latitude,
 		city.Longitude,
 		city.Description,
-		time.Now(),
-	).Scan(&lastInsertID)
+		city.CreatedAt,
+		city.UpdatedAt,
+	).Scan(&cityID)
 
 	if err != nil {
 		log.Printf("ERROR inserting city %s (CountryID %d): %v", city.Name, city.CountryID, err)
 		return 0, fmt.Errorf("failed to insert city %s: %w", city.Name, err)
 	}
 
-	return lastInsertID, nil
-}
-
-func (r *CityRepository) GetByName(name string, countryID int) (*models.City, error) {
-	city := models.City{}
-
-	query := `SELECT city_id,country_id,name,latitude,longitude
-			  FROM cities 
-			  WHERE name = $1 AND country_id = $2;`
-
-	err := r.db.QueryRow(query, name, countryID).Scan(
-		&city.CityID,
-		&city.CountryID,
-		&city.Name,
-		&city.Latitude,
-		&city.Longitude,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("error fetching city %s: %w", name, err)
-	}
-
-	return &city, nil
+	return cityID, nil
 }
 
 type CityLocation struct {
@@ -103,10 +85,10 @@ func (r *CityRepository) GetAllCityLocations() ([]CityLocation, error) {
 		}
 		locations = append(locations, loc)
 	}
-	
+
 	if err := rows.Err(); err != nil {
-        return nil, fmt.Errorf("error after scanning city rows: %w", err)
-    }
+		return nil, fmt.Errorf("error after scanning city rows: %w", err)
+	}
 
 	return locations, nil
 }
