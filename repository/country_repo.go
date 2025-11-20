@@ -93,17 +93,3 @@ func (r *CountryRepository) GetAll() ([]models.Country, error) {
 
 	return countries, nil
 }
-
-// use for seeding the cities table
-func (r *CountryRepository) GetCountryCodeToIDMap() (map[string]int, error) {
-	countries, err := r.GetAll()
-	if err != nil {
-		return nil, err
-	}
-
-	countryMap := make(map[string]int)
-	for _, country := range countries {
-		countryMap[country.Code] = country.CountryID
-	}
-	return countryMap, nil
-}

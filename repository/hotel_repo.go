@@ -2,6 +2,8 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
+	"time"
 	"travel-planning/models"
 )
 
@@ -13,12 +15,35 @@ func NewHotelRepository(db *sql.DB) *HotelRepository {
 	return &HotelRepository{db: db}
 }
 
-func (r *HotelRepository) Insert(hotel *models.Hotel) (int, error) {
+func (r *HotelRepository) Upsert(hotel *models.Hotel) (int, error) {
 	query := `INSERT INTO hotels (
-		city_id,name,address,stars,rating,price_per_night,
-		currency,amenities,phone,email,website,image_url,description)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-		RETURNING hotel_id`
+        city_id, name, address, stars, rating, price_per_night,
+        currency, amenities, phone, email, website, image_url, description, 
+        created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ON CONFLICT (name, city_id) DO UPDATE 
+        SET 
+            address = EXCLUDED.address,
+            stars = EXCLUDED.stars,
+            rating = EXCLUDED.rating,
+            price_per_night = EXCLUDED.price_per_night,
+            currency = EXCLUDED.currency,
+            amenities = EXCLUDED.amenities,
+            description = EXCLUDED.description,
+            image_url = EXCLUDED.image_url,
+            phone = COALESCE(EXCLUDED.phone, hotels.phone), 
+            email = COALESCE(EXCLUDED.email,hotels.email),
+            website = COALESCE(EXCLUDED.website,hotels.website),
+            updated_at = NOW() AT TIME ZONE 'Asia/Yerevan'
+        RETURNING hotel_id`
+
+	if hotel.CreatedAt.IsZero() {
+		hotel.CreatedAt = time.Now()
+	}
+
+	if hotel.UpdatedAt.IsZero() {
+		hotel.UpdatedAt = time.Now()
+	}
 
 	var hotelID int
 	err := r.db.QueryRow(
@@ -36,11 +61,12 @@ func (r *HotelRepository) Insert(hotel *models.Hotel) (int, error) {
 		hotel.Website,
 		hotel.ImageURL,
 		hotel.Description,
+		hotel.CreatedAt,
+		hotel.UpdatedAt,
 	).Scan(&hotelID)
 
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to upsert hotel %s: %w", hotel.Name, err)
 	}
-
 	return hotelID, nil
 }

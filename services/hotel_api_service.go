@@ -1,0 +1,116 @@
+package services
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+	"travel-planning/models"
+)
+
+type HotelAPIService struct {
+	amadeus        *AmadeusService
+	searchRadiusKm int
+}
+
+func NewHotelAPIService(amadeus *AmadeusService) *HotelAPIService {
+	return &HotelAPIService{
+		amadeus:        amadeus,
+		searchRadiusKm: 20,
+	}
+}
+
+type HotelSearchResponse struct {
+	Data []struct {
+		HotelID   string  `json:"hotelId"`
+		Name      string  `json:"name"`
+		Latitude  float64 `json:"latitude"`
+		Longitude float64 `json:"longitude"`
+		Address   struct {
+			Lines    []string `json:"lines"`
+			CityName string   `json:"cityName"`
+		} `json:"address"`
+		Price struct {
+			Currency string `json:"currency"`
+			Total    string `json:"total"`
+		} `json:"price"`
+	} `json:"data"`
+	Errors []interface{} `json:"errors"`
+}
+
+func (s *HotelAPIService) SearchHotelsByGeo(lat, lon float64, radiusKm int) (*HotelSearchResponse, error) {
+	endpoint := "/v1/reference-data/locations/hotels/by-geocode"
+
+	params := url.Values{}
+	params.Add("latitude", strconv.FormatFloat(lat, 'f', 6, 64))
+	params.Add("longitude", strconv.FormatFloat(lon, 'f', 6, 64))
+	params.Add("radius", fmt.Sprintf("%d", radiusKm))
+	params.Add("radiusUnit", "KM")
+
+	resp, err := s.amadeus.ExecuteGetRequest(endpoint, params)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
+	}
+
+	var apihotels HotelSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apihotels); err != nil {
+		return nil, fmt.Errorf("failed to decode API response: %w", err)
+	}
+
+	if len(apihotels.Errors) > 0 {
+		log.Printf("Amadeus API returned errors: %v", apihotels.Errors)
+		return nil, fmt.Errorf("amadeus API reported data errors")
+	}
+
+	return &apihotels, nil
+}
+
+func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*models.Hotel, error) {
+	resp, err := s.SearchHotelsByGeo(lat, lon, s.searchRadiusKm)
+	if err != nil {
+		return nil, fmt.Errorf("amadues search failed for city %v:%w", cityID, err)
+	}
+
+	var hotels []*models.Hotel
+	for _, hotel := range resp.Data {
+		totalPrice := 0.0
+		if hotel.Price.Total != "" {
+			var err error
+			totalPrice, err = strconv.ParseFloat(hotel.Price.Total, 64)
+			if err != nil {
+				log.Printf("Failed to parse price '%s' for hotel '%s'.", hotel.Price.Total, hotel.Name)
+				continue
+			}
+		}
+
+		newHotel := &models.Hotel{
+			HotelID:       0,
+			CityID:        cityID,
+			Name:          hotel.Name,
+			Address:       strings.Join(hotel.Address.Lines, ", ") + ", " + hotel.Address.CityName,
+			Stars:         1,
+			Rating:        0,
+			PricePerNight: totalPrice,
+			Currency:      hotel.Price.Currency,
+			Amenities:     "",
+			Phone:         "",
+			Email:         "",
+			Website:       "",
+			ImageURL:      "",
+			Description:   "",
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+		hotels = append(hotels, newHotel)
+	}
+	return hotels, nil
+}
