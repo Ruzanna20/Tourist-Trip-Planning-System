@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+
 	//"time"
 	"travel-planning/database"
 
@@ -26,17 +27,21 @@ func main() {
 	hotelRepo := repository.NewHotelRepository(sqlConn)
 	restaurantRepo := repository.NewRestaurantRepository(sqlConn)
 	amadeusService := services.NewAmadeusService()
+	countryAPIService := services.NewCountryAPIService()
 	cityAPIService := services.NewCityAPIService()
 	hotelAPIService := services.NewHotelAPIService(amadeusService)
 	restaurantAPIService := services.NewRestaurantAPIService(amadeusService)
+	transportationAPIService := services.TransportationAPIService(amadeusService)
 	seeder := services.NewDataSeeder(countryRepo,
 		cityRepo,
 		attractionRepo,
 		hotelRepo,
 		restaurantRepo,
+		countryAPIService,
 		cityAPIService,
 		hotelAPIService,
-		restaurantAPIService)
+		restaurantAPIService,
+		transportationAPIService)
 
 	log.Println("Starting Seeding...")
 
@@ -46,24 +51,28 @@ func main() {
 		log.Fatalf("CRITICAL: Data Seeding failed. Error: %v", err)
 	}
 
-	//city
-	if err = seeder.SeedCities(); err != nil {
-		log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
-	}
+	// //city
+	// if err = seeder.SeedCities(); err != nil {
+	// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
+	// }
 
-	//attraction
-	attractionFilePath := "data/destinations.csv"
-	if err = seeder.SeedAttractions(attractionFilePath); err != nil {
-		log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
-	}
+	// //attraction
+	// attractionFilePath := "data/destinations.csv"
+	// if err = seeder.SeedAttractions(attractionFilePath); err != nil {
+	// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
+	// }
 
-	// hotel
-	if err = seeder.SeedHotels(); err != nil {
-		log.Fatalf("CRITICAL: Hotel Data seeding failed. Error: %v", err)
-	}
+	// // hotel
+	// if err = seeder.SeedHotels(); err != nil {
+	// 	log.Fatalf("CRITICAL: Hotel Data seeding failed. Error: %v", err)
+	// }
 
-	if err = seeder.SeedRestaurants(); err != nil {
-		log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
+	// if err = seeder.SeedRestaurants(); err != nil {
+	// 	log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
+	// }
+
+	if err = seeder.SeedTransportation(); err != nil {
+		log.Fatalf("CRITICAL: Transportation Seeding failed. Error: %v", err)
 	}
 
 	// log.Println("Jobs started in background...")
@@ -79,6 +88,19 @@ func main() {
 	// 	countryJob.RunJob()
 	// 	for range ticker.C {
 	// 		countryJob.RunJob()
+	// 	}
+	// }()
+
+	// cityJob := jobservice.NewCityJob(seeder)
+	// go func ()  {
+	// 	log.Printf("City Job run every %s", Interval)
+
+	// 	ticker := time.NewTicker(Interval)
+	// 	defer ticker.Stop()
+
+	// 	cityJob.RunJob()
+	// 	for range ticker.C {
+	// 		cityJob.RunJob()
 	// 	}
 	// }()
 
@@ -105,19 +127,6 @@ func main() {
 	// 	restaurantJob.RunJob()
 	// 	for range ticker.C {
 	// 		restaurantJob.RunJob()
-	// 	}
-	// }()
-
-	// cityJob := jobservice.NewCityJob(seeder)
-	// go func ()  {
-	// 	log.Printf("City Job run every %s", Interval)
-
-	// 	ticker := time.NewTicker(Interval)
-	// 	defer ticker.Stop()
-
-	// 	cityJob.RunJob()
-	// 	for range ticker.C {
-	// 		cityJob.RunJob()
 	// 	}
 	// }()
 

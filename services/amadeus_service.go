@@ -30,7 +30,7 @@ type TokenResponse struct {
 
 func NewAmadeusService() *AmadeusService {
 	return &AmadeusService{
-		client:    &http.Client{Timeout: 30 * time.Second},
+		client:    &http.Client{Timeout: 45 * time.Second},
 		baseURL:   os.Getenv("AMADEUS_BASE_URL"),
 		apiKey:    os.Getenv("AMADEUS_API_KEY"),
 		apiSecret: os.Getenv("AMADEUS_API_SECRET"),
@@ -78,6 +78,12 @@ func (as *AmadeusService) FetchToken() error {
 }
 
 func (as *AmadeusService) GetToken() (string, error) {
+	as.tokenMutex.RLock()
+	if as.accessToken != "" && time.Now().Before(as.tokenExpiry.Add(-5*time.Minute)) {
+		defer as.tokenMutex.RUnlock()
+		return as.accessToken, nil
+	}
+	as.tokenMutex.RUnlock()
 	if err := as.FetchToken(); err != nil {
 		return "", fmt.Errorf("failed to renew amadues token: %w", err)
 	}

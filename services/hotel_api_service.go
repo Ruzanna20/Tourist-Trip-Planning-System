@@ -13,13 +13,15 @@ import (
 )
 
 type HotelAPIService struct {
-	amadeus        *AmadeusService
+	amadeus *AmadeusService
+	// osmService     *OSMService
 	searchRadiusKm int
 }
 
 func NewHotelAPIService(amadeus *AmadeusService) *HotelAPIService {
 	return &HotelAPIService{
-		amadeus:        amadeus,
+		amadeus: amadeus,
+		// osmService:     osmService,
 		searchRadiusKm: 20,
 	}
 }

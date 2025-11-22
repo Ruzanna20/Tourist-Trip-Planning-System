@@ -21,10 +21,9 @@ func NewCityRepository(db *sql.DB) *CityRepository {
 func (r *CityRepository) Upsert(city *models.City) (int, error) {
 	query := `INSERT INTO cities  (country_id, name, latitude, longitude, description, created_at, updated_at) 
 			VALUES ($1, $2, $3, $4, $5, $6,$7) 
-			ON CONFLICT (name, country_id) DO UPDATE 
+			ON CONFLICT (latitude, longitude, country_id) DO UPDATE
 			SET 
-				latitude = EXCLUDED.latitude, 
-				longitude = EXCLUDED.longitude,
+				name = EXCLUDED.name,
 				description = EXCLUDED.description,
 				updated_at = NOW() AT TIME ZONE 'Asia/Yerevan'
 			RETURNING city_id;`
