@@ -45,6 +45,7 @@ func (job *RestaurantJob) RunJob() {
 		)
 		if err != nil {
 			log.Printf("ERROR fetching hotels for %s: %v", cityLoc.Name, err)
+			time.Sleep(4 * time.Second)
 			continue
 		}
 
@@ -56,7 +57,7 @@ func (job *RestaurantJob) RunJob() {
 			}
 		}
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(4 * time.Second)
 	}
 
 	log.Println("Restaurant Job Completed.")

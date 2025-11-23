@@ -13,15 +13,15 @@ import (
 )
 
 type HotelAPIService struct {
-	amadeus *AmadeusService
-	// osmService     *OSMService
+	amadeus        *AmadeusService
+	foursquare     *FoursquareService
 	searchRadiusKm int
 }
 
-func NewHotelAPIService(amadeus *AmadeusService) *HotelAPIService {
+func NewHotelAPIService(amadeus *AmadeusService, foursquare *FoursquareService) *HotelAPIService {
 	return &HotelAPIService{
-		amadeus: amadeus,
-		// osmService:     osmService,
+		amadeus:        amadeus,
+		foursquare:     foursquare,
 		searchRadiusKm: 20,
 	}
 }
@@ -94,19 +94,24 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 			}
 		}
 
+		enrichedData, err := s.foursquare.EnrichHotelData(hotel.Name, hotel.Latitude, hotel.Longitude)
+		if err != nil || enrichedData == nil {
+			log.Printf("Foursquare encrichment failed for %s:%v", hotel.Name, err)
+			enrichedData = &FoursquareEnrichmentData{}
+		}
 		newHotel := &models.Hotel{
 			HotelID:       0,
 			CityID:        cityID,
 			Name:          hotel.Name,
 			Address:       strings.Join(hotel.Address.Lines, ", ") + ", " + hotel.Address.CityName,
 			Stars:         1,
-			Rating:        0,
+			Rating:        enrichedData.Rating,
 			PricePerNight: totalPrice,
 			Currency:      hotel.Price.Currency,
-			Amenities:     "",
-			Phone:         "",
+			Amenities:     enrichedData.Amenities,
+			Phone:         enrichedData.Phone,
 			Email:         "",
-			Website:       "",
+			Website:       enrichedData.Website,
 			ImageURL:      "",
 			Description:   "",
 			CreatedAt:     time.Now(),

@@ -3,9 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
-	"math"
 	"time"
-	dataprocessor "travel-planning/data_processor"
 	"travel-planning/models"
 	"travel-planning/repository"
 )
@@ -20,6 +18,7 @@ type DataSeeder struct {
 
 	countryAPIService        *CountryAPIService
 	cityAPIService           *CityAPIService
+	attractionAPIService     *AttractionAPIService
 	hotelAPIService          *HotelAPIService
 	restaurantAPIService     *RestaurantAPIService
 	transportationAPIService *TransportationAPIService
@@ -34,6 +33,7 @@ func NewDataSeeder(
 	transportationRepo *repository.TransportationRepository,
 	countryAPIService *CountryAPIService,
 	cityAPIService *CityAPIService,
+	attractionAPIService *AttractionAPIService,
 	hotelAPIService *HotelAPIService,
 	restaurantAPIService *RestaurantAPIService,
 	transportationAPIService *TransportationAPIService,
@@ -47,6 +47,7 @@ func NewDataSeeder(
 		transportationRepo:       transportationRepo,
 		countryAPIService:        countryAPIService,
 		cityAPIService:           cityAPIService,
+		attractionAPIService:     attractionAPIService,
 		hotelAPIService:          hotelAPIService,
 		restaurantAPIService:     restaurantAPIService,
 		transportationAPIService: transportationAPIService,
@@ -133,6 +134,7 @@ func (s *DataSeeder) SeedHotels() error {
 		)
 		if err != nil {
 			log.Printf("Error fetching hotels for %s: %v", cityLoc.Name, err)
+			time.Sleep(1500 * time.Millisecond)
 			continue
 		}
 
@@ -140,12 +142,10 @@ func (s *DataSeeder) SeedHotels() error {
 			_, err := s.hotelRepo.Upsert(hotel)
 			if err != nil {
 				log.Printf("Failed to insert hotel %s: %v", hotel.Name, err)
-				time.Sleep(1500 * time.Millisecond)
 				continue
 			}
 		}
 		time.Sleep(1500 * time.Millisecond)
-
 	}
 	log.Println("Ending hotels seeding proccess...")
 	return nil
@@ -174,6 +174,7 @@ func (s *DataSeeder) SeedRestaurants() error {
 		)
 		if err != nil {
 			log.Printf("Error fetching hotels for %s: %v", cityLoc.Name, err)
+			time.Sleep(1500 * time.Millisecond)
 			continue
 		}
 
@@ -181,7 +182,6 @@ func (s *DataSeeder) SeedRestaurants() error {
 			_, err := s.restaurantRepo.Upsert(restaurant)
 			if err != nil {
 				log.Printf("Failed to insert hotel %s: %v", restaurant.Name, err)
-				time.Sleep(1500 * time.Millisecond)
 				continue
 			}
 		}
@@ -196,86 +196,54 @@ func (s *DataSeeder) SeedRestaurants() error {
 func (s *DataSeeder) SeedTransportation() error {
 	log.Println("Starting Transportation Seeding...")
 
-	iataMap, err := s.transportationAPIService.MapCityLocationsToIATA()
+	iataMap, err := s.transportationAPIService.CityLocationsToIATA()
 	if err != nil {
 		return fmt.Errorf("failed to map cities to IATA codes: %w", err)
 	}
 
-	var validCityIDs []int
+	var CityIDs []int
 	for cityID, code := range iataMap {
 		if code != "" {
-			validCityIDs = append(validCityIDs, cityID)
+			CityIDs = append(CityIDs, cityID)
 		}
 	}
 
-	totalRoutesProcessed := 0
-	sleepInterval := 3 * time.Second
+	for i, FromCityID := range CityIDs {
+		for j := i + 1; j < len(CityIDs) && j < i+50; j++ {
+			ToCityID := CityIDs[j]
 
-	for i, originID := range validCityIDs {
-		for j := i + 1; j < len(validCityIDs) && j < i+50; j++ {
-			destinationID := validCityIDs[j]
-
-			originIata := iataMap[originID]
-			destinationIata := iataMap[destinationID]
-			if originIata == destinationIata {
+			fromCityID := iataMap[FromCityID]
+			toCityID := iataMap[ToCityID]
+			if fromCityID == toCityID {
 				continue
 			}
 
-			flightOffer, err := s.transportationAPIService.FindBestFlightOffer(originIata, destinationIata)
+			flightOffer, err := s.transportationAPIService.FindBestFlightOffer(fromCityID, toCityID)
 
 			if err != nil {
-				log.Printf("ERROR flight search %s -> %s: %v", originIata, destinationIata, err)
-				time.Sleep(sleepInterval)
+				log.Printf("ERROR flight search %s -> %s: %v", fromCityID, toCityID, err)
+				time.Sleep(3 * time.Second)
 				continue
 			}
 
 			if flightOffer != nil {
-				flightOffer.FromCityID = originID
-				flightOffer.ToCityID = destinationID
+				flightOffer.FromCityID = FromCityID
+				flightOffer.ToCityID = ToCityID
 
 				if _, err := s.transportationRepo.Upsert(flightOffer); err != nil {
 					log.Printf("CRITICAL DB ERROR upserting flight route: %v", err)
 				}
-				totalRoutesProcessed++
 			}
-			time.Sleep(sleepInterval)
+			time.Sleep(3 * time.Second)
 		}
 	}
 
-	log.Printf("Transportation Seeding Completed. Total routes processed: %d", totalRoutesProcessed)
+	log.Println("Ending transportation seeding proccess...")
 	return nil
 }
 
-const earthRadiusKm = 6371
-
-func haversine(lat1, lon1, lat2, lon2 float64) float64 {
-	var degToRad = func(deg float64) float64 { return deg * (math.Pi / 180) }
-
-	rLat1 := degToRad(lat1)
-	rLon1 := degToRad(lon1)
-	rLat2 := degToRad(lat2)
-	rLon2 := degToRad(lon2)
-
-	dLat := rLat2 - rLat1
-	dLon := rLon2 - rLon1
-
-	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
-		math.Cos(rLat1)*math.Cos(rLat2)*
-			math.Sin(dLon/2)*math.Sin(dLon/2)
-
-	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-
-	//arc length(distance)
-	return earthRadiusKm * c
-}
-
-func (s *DataSeeder) SeedAttractions(filePath string) error {
+func (s *DataSeeder) SeedAttractions() error {
 	log.Println("Starting Attraction Seeding process...")
-
-	attractionData, err := dataprocessor.FetchAttractionFromEuropeanTour(filePath)
-	if err != nil {
-		return fmt.Errorf("attraction data processing failed: %w", err)
-	}
 
 	cityLocations, err := s.cityRepo.GetAllCityLocations()
 	if err != nil {
@@ -285,43 +253,29 @@ func (s *DataSeeder) SeedAttractions(filePath string) error {
 		return fmt.Errorf("no cities found in database")
 	}
 
-	for _, data := range attractionData {
-		var closestCityID int
-		//The largest possible value
-		minDistance := float64(math.MaxFloat64)
+	for _, cityLoc := range cityLocations {
+		if cityLoc.Latitude == 0 || cityLoc.Longitude == 0 {
+			log.Printf("Skipping %s (ID %d): Invalid zero coordinates (Lat:%.4f, Lon:%.4f).",
+				cityLoc.Name, cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude)
+			continue
+		}
 
-		for _, city := range cityLocations {
-			distance := haversine(data.Latitude, data.Longitude, city.Latitude, city.Longitude)
-			if distance < minDistance && distance < 100 {
-				minDistance = distance
-				closestCityID = city.ID
+		attractionData, err := s.attractionAPIService.FetchAttractionByCity(cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude)
+		if err != nil {
+			log.Printf("ERROR fetching attractions for %s: %v", cityLoc.Name, err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		for _, attraction := range attractionData {
+			attraction.CityID = cityLoc.ID
+			_, err := s.attractionRepo.Upsert(&attraction)
+			if err != nil {
+				log.Printf("Failed to insert attraction %s: %v", attraction.Name, err)
+				continue
 			}
 		}
-
-		if closestCityID == 0 {
-			continue
-		}
-
-		newAttraction := &models.Attraction{
-			CityID:       closestCityID,
-			Name:         data.Name,
-			Category:     data.Category,
-			Latitude:     data.Latitude,
-			Longitude:    data.Longitude,
-			Rating:       data.Rating,
-			EntryFee:     data.EntryFee,
-			Currency:     "USD",
-			OpeningHours: "",
-			Description:  data.Description,
-			ImageURL:     "",
-			Website:      "",
-		}
-
-		_, err := s.attractionRepo.Upsert(newAttraction)
-		if err != nil {
-			log.Printf("Failed to insert attraction %s: %v", newAttraction.Name, err)
-			continue
-		}
+		time.Sleep(3 * time.Second)
 	}
 	log.Println("Ending attractions seeding proccess...")
 	return nil
