@@ -20,15 +20,15 @@ type JWTService struct {
 	expiry    time.Duration
 }
 
-func NewJWTService(jwtSecret string, expiryHoursStr string) *JWTService {
-	expiryHours := 24
-	if h, err := strconv.Atoi(expiryHoursStr); err == nil && h > 0 {
-		expiryHours = h
+func NewJWTService(jwtSecret string, expiryMinutesStr string) *JWTService {
+	expiryMinutes := 5
+	if m, err := strconv.Atoi(expiryMinutesStr); err == nil && m > 0 {
+		expiryMinutes = m
 	}
 
 	return &JWTService{
 		secretKey: []byte(jwtSecret),
-		expiry:    time.Duration(expiryHours) * time.Hour,
+		expiry:    time.Duration(expiryMinutes) * time.Minute,
 	}
 }
 
@@ -103,4 +103,26 @@ func (s *JWTService) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		r.Header.Set("X-User-ID", fmt.Sprintf("%d", claims.UserID))
 		next(w, r)
 	}
+}
+
+func (s *JWTService) GenerateRefreshToken(userID int) (string, error) {
+	refreshExpiry := 7 * 24 * time.Hour
+
+	claims := CustomClaims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   fmt.Sprintf("%d", userID),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshExpiry)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenStr, err := token.SignedString(s.secretKey)
+	if err != nil {
+		return "", fmt.Errorf("could not sign token:%w", err)
+	}
+	return tokenStr, nil
+
 }

@@ -26,8 +26,9 @@ type Credentials struct {
 }
 
 type Response struct {
-	Message string `json:"message"`
-	Token   string `json:"token,omitempty"`
+	Message      string `json:"message"`
+	Token        string `json:"token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 type AppHandlers struct {
@@ -35,6 +36,10 @@ type AppHandlers struct {
 	CityRepo       *repository.CityRepository
 	AttractionRepo *repository.AttractionRepository
 	CountryRepo    *repository.CountryRepository
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 func NewAppHandlers(HotelRepo *repository.HotelRepository,
@@ -56,10 +61,7 @@ func init() {
 		jwtSecret = "default-development-secret-must-be-changed"
 	}
 
-	expiry := os.Getenv("JWT_EXPIRY_HOURS")
-	if expiry == "" {
-		expiry = "24"
-	}
+	expiry := "5"
 
 	jwtService = services.NewJWTService(jwtSecret, expiry)
 	log.Println("JWT Service initialized.")
@@ -92,10 +94,17 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			refreshToken, err := jwtService.GenerateRefreshToken(1)
+			if err != nil {
+				http.Error(w, "Error generating token", http.StatusInternalServerError)
+				return
+			}
+
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(Response{
-				Message: "Login successful",
-				Token:   token,
+				Message:      "Login successful",
+				Token:        token,
+				RefreshToken: refreshToken,
 			})
 			return
 		}
@@ -129,6 +138,39 @@ func (h *AppHandlers) protectedHandler(w http.ResponseWriter, r *http.Request) {
 		Message: fmt.Sprintf("User %d is authorized. Fetched %d cities.", userID, len(cities)),
 	})
 }
+
+func refreshHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req RefreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body format", http.StatusBadRequest)
+		return
+	}
+
+	claims, err := jwtService.ValidateToken(req.RefreshToken)
+	if err != nil {
+		http.Error(w, "Invalid refresh token. Please log in.", http.StatusUnauthorized)
+		return
+	}
+
+	newAccessToken, err := jwtService.GenerateToken(claims.UserID)
+	if err != nil {
+		log.Printf("Error generating new access token: %v", err)
+		http.Error(w, "Error generating new access token", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Response{
+		Message: "Token refreshed successfully",
+		Token:   newAccessToken,
+	})
+}
+
 func main() {
 	port := ":8080"
 
@@ -148,6 +190,7 @@ func main() {
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/protected", jwtService.AuthMiddleware(appHandlers.protectedHandler))
+	http.HandleFunc("/refresh", refreshHandler)
 
 	log.Printf("Server starting on port %s", port)
 	log.Fatal(http.ListenAndServe(port, nil))
