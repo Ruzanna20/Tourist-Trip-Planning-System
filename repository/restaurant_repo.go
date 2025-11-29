@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 	"travel-planning/models"
 )
@@ -65,4 +66,50 @@ func (r *RestaurantRepository) Upsert(restaurant *models.Restaurant) (int, error
 		return 0, fmt.Errorf("failed to upsert hotel %s: %w", restaurant.Name, err)
 	}
 	return restaurantID, nil
+}
+
+func (r *RestaurantRepository) GetAllRestaurants() ([]models.Restaurant, error) {
+	query := `SELECT 
+                restaurant_id, city_id, name, cuisine_type, address, rating, price_range, 
+                phone, website, image_url, opening_hours, created_at, updated_at
+              FROM restaurants;`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch all restaurants: %w", err)
+	}
+	defer rows.Close()
+
+	var restaurants []models.Restaurant
+	for rows.Next() {
+		var r models.Restaurant
+		var ratingSql sql.NullFloat64
+		var cuisineSql, addressSql, priceRangeSql, phoneSql, websiteSql, imageUrlSql, openingHoursSql sql.NullString
+
+		if err := rows.Scan(
+			&r.RestaurantID, &r.CityID, &r.Name,
+			&cuisineSql, &addressSql, &ratingSql, &priceRangeSql,
+			&phoneSql, &websiteSql, &imageUrlSql, &openingHoursSql,
+			&r.CreatedAt, &r.UpdatedAt,
+		); err != nil {
+			log.Printf("Error scanning restaurant row: %v", err)
+			continue
+		}
+
+		r.CuisineType = cuisineSql.String
+		r.Address = addressSql.String
+		r.Rating = ratingSql.Float64
+		r.PriceRange = priceRangeSql.String
+		r.Phone = phoneSql.String
+		r.Website = websiteSql.String
+		r.ImageURL = imageUrlSql.String
+		r.OpeningHours = openingHoursSql.String
+		restaurants = append(restaurants, r)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return restaurants, nil
 }

@@ -70,3 +70,48 @@ func (r *AttractionRepository) Upsert(attraction *models.Attraction) (int, error
 	}
 	return attractionID, nil
 }
+
+func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) {
+	query := `SELECT 
+                attraction_id, city_id, name, category, latitude, longitude, 
+                rating, entry_fee, currency, opening_hours, description, 
+                image_url, website, created_at, updated_at
+              FROM attractions;`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch all attractionS:%w", err)
+	}
+	defer rows.Close()
+
+	var attractions []models.Attraction
+	for rows.Next() {
+		var a models.Attraction
+		var ratingSql, entryFeeSql sql.NullFloat64
+		var currencySql, openingHoursSql, descriptionSql, imageUrlSql, websiteSql sql.NullString
+		if err := rows.Scan(
+			&a.AttractionID, &a.CityID, &a.Name, &a.Category, &a.Latitude, &a.Longitude,
+			&ratingSql, &entryFeeSql, &currencySql, &openingHoursSql, &descriptionSql,
+			&imageUrlSql, &websiteSql, &a.CreatedAt, &a.UpdatedAt,
+		); err != nil {
+			log.Printf("Error scanning attraction row: %v", err)
+			continue
+		}
+
+		a.Rating = ratingSql.Float64
+		a.EntryFee = entryFeeSql.Float64
+		a.Currency = currencySql.String
+		a.OpeningHours = openingHoursSql.String
+		a.Description = descriptionSql.String
+		a.ImageURL = imageUrlSql.String
+		a.Website = websiteSql.String
+
+		attractions = append(attractions, a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return attractions, nil
+}

@@ -36,6 +36,7 @@ type AppHandlers struct {
 	CityRepo       *repository.CityRepository
 	AttractionRepo *repository.AttractionRepository
 	CountryRepo    *repository.CountryRepository
+	RestaurantRepo *repository.RestaurantRepository
 }
 
 type RefreshRequest struct {
@@ -45,12 +46,14 @@ type RefreshRequest struct {
 func NewAppHandlers(HotelRepo *repository.HotelRepository,
 	CityRepo *repository.CityRepository,
 	AttractionRepo *repository.AttractionRepository,
-	CountryRepo *repository.CountryRepository) *AppHandlers {
+	CountryRepo *repository.CountryRepository,
+	RestaurantRepo *repository.RestaurantRepository) *AppHandlers {
 	return &AppHandlers{
 		HotelRepo:      HotelRepo,
 		CityRepo:       CityRepo,
 		AttractionRepo: AttractionRepo,
 		CountryRepo:    CountryRepo,
+		RestaurantRepo: RestaurantRepo,
 	}
 }
 
@@ -119,26 +122,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *AppHandlers) protectedHandler(w http.ResponseWriter, r *http.Request) {
-	userIDStr := r.Header.Get("X-User-ID")
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		http.Error(w, "Invalid User ID format", http.StatusInternalServerError)
-	}
-
-	cities, err := h.CityRepo.GetAllCityLocations()
-	if err != nil {
-		log.Printf("DB error fetching cities:%v", err)
-		http.Error(w, "Invalid User ID format", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Response{
-		Message: fmt.Sprintf("User %d is authorized. Fetched %d cities.", userID, len(cities)),
-	})
-}
-
 func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -171,6 +154,130 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *AppHandlers) protectedHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, "Invalid User ID format", http.StatusInternalServerError)
+	}
+
+	cities, err := h.CityRepo.GetAllCityLocations()
+	if err != nil {
+		log.Printf("DB error fetching cities:%v", err)
+		http.Error(w, "Invalid User ID format", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Response{
+		Message: fmt.Sprintf("User %d is authorized. Fetched %d cities.", userID, len(cities)),
+	})
+}
+
+func (h *AppHandlers) GetAllCountriesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	countries, err := h.CountryRepo.GetAll()
+	if err != nil {
+		log.Printf("DB error fetching data:%v", err)
+		http.Error(w, "DB error fetching city data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(countries); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+}
+
+func (h *AppHandlers) GetAllCitiesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cities, err := h.CityRepo.GetAllCities()
+	if err != nil {
+		log.Printf("DB error fetching data:%v", err)
+		http.Error(w, "DB error fetching city data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(cities); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+
+}
+
+func (h *AppHandlers) GetAllAttractionssHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	attractions, err := h.AttractionRepo.GetAllAttractions()
+	if err != nil {
+		log.Printf("DB error fetching data:%v", err)
+		http.Error(w, "DB error fetching city data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(attractions); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+
+}
+
+func (h *AppHandlers) GetAllHotelsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	hotels, err := h.HotelRepo.GetAllHotels()
+	if err != nil {
+		log.Printf("DB error fetching data:%v", err)
+		http.Error(w, "DB error fetching city data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(hotels); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+
+}
+
+func (h *AppHandlers) GetAllRestaurantssHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	restaurants, err := h.RestaurantRepo.GetAllRestaurants()
+	if err != nil {
+		log.Printf("DB error fetching data:%v", err)
+		http.Error(w, "DB error fetching city data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(restaurants); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+
+}
+
 func main() {
 	port := ":8080"
 
@@ -185,12 +292,19 @@ func main() {
 	cityRepo := repository.NewCityRepository(sqlConn)
 	attractionRepo := repository.NewAttractionRepository(sqlConn)
 	hotelRepo := repository.NewHotelRepository(sqlConn)
-	appHandlers := NewAppHandlers(hotelRepo, cityRepo, attractionRepo, countryRepo)
+	restaurantRepo := repository.NewRestaurantRepository(sqlConn)
+	appHandlers := NewAppHandlers(hotelRepo, cityRepo, attractionRepo, countryRepo, restaurantRepo)
 
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/protected", jwtService.AuthMiddleware(appHandlers.protectedHandler))
 	http.HandleFunc("/refresh", refreshHandler)
+
+	http.HandleFunc("/api/cities", jwtService.AuthMiddleware(appHandlers.GetAllCitiesHandler))
+	http.HandleFunc("/api/countries", jwtService.AuthMiddleware(appHandlers.GetAllCountriesHandler))
+	http.HandleFunc("/api/attractions", jwtService.AuthMiddleware(appHandlers.GetAllAttractionssHandler))
+	http.HandleFunc("/api/hotels", jwtService.AuthMiddleware(appHandlers.GetAllHotelsHandler))
+	http.HandleFunc("/api/restaurants", jwtService.AuthMiddleware(appHandlers.GetAllRestaurantssHandler))
 
 	log.Printf("Server starting on port %s", port)
 	log.Fatal(http.ListenAndServe(port, nil))

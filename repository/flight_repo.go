@@ -17,7 +17,7 @@ func NewTransportationRepository(db *sql.DB) *TransportationRepository {
 	}
 }
 
-func (r *TransportationRepository) Upsert(transportation *models.Transportation) (int, error) {
+func (r *TransportationRepository) Upsert(transportation *models.Flight) (int, error) {
 	query := `INSERT INTO transportation (
         from_city_id, to_city_id, type, carrier, duration_minutes, price, 
         currency, website, created_at, updated_at
@@ -46,8 +46,7 @@ func (r *TransportationRepository) Upsert(transportation *models.Transportation)
 		query,
 		transportation.FromCityID,
 		transportation.ToCityID,
-		transportation.Type,
-		transportation.Carrier,
+		transportation.Airline,
 		transportation.DurationMinutes,
 		transportation.Price,
 		transportation.Currency,

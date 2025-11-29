@@ -21,7 +21,7 @@ type JWTService struct {
 }
 
 func NewJWTService(jwtSecret string, expiryMinutesStr string) *JWTService {
-	expiryMinutes := 5
+	expiryMinutes := 30
 	if m, err := strconv.Atoi(expiryMinutesStr); err == nil && m > 0 {
 		expiryMinutes = m
 	}

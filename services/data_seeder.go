@@ -16,12 +16,12 @@ type DataSeeder struct {
 	restaurantRepo     *repository.RestaurantRepository
 	transportationRepo *repository.TransportationRepository
 
-	countryAPIService        *CountryAPIService
-	cityAPIService           *CityAPIService
-	attractionAPIService     *AttractionAPIService
-	hotelAPIService          *HotelAPIService
-	restaurantAPIService     *RestaurantAPIService
-	transportationAPIService *TransportationAPIService
+	countryAPIService    *CountryAPIService
+	cityAPIService       *CityAPIService
+	attractionAPIService *AttractionAPIService
+	hotelAPIService      *HotelAPIService
+	restaurantAPIService *RestaurantAPIService
+	// transportationAPIService *TransportationAPIService
 }
 
 func NewDataSeeder(
@@ -36,21 +36,21 @@ func NewDataSeeder(
 	attractionAPIService *AttractionAPIService,
 	hotelAPIService *HotelAPIService,
 	restaurantAPIService *RestaurantAPIService,
-	transportationAPIService *TransportationAPIService,
+	// transportationAPIService *TransportationAPIService,
 ) *DataSeeder {
 	return &DataSeeder{
-		countryRepo:              countryRepo,
-		cityRepo:                 cityRepo,
-		attractionRepo:           attractionRepo,
-		hotelRepo:                hotelRepo,
-		restaurantRepo:           restaurantRepo,
-		transportationRepo:       transportationRepo,
-		countryAPIService:        countryAPIService,
-		cityAPIService:           cityAPIService,
-		attractionAPIService:     attractionAPIService,
-		hotelAPIService:          hotelAPIService,
-		restaurantAPIService:     restaurantAPIService,
-		transportationAPIService: transportationAPIService,
+		countryRepo:          countryRepo,
+		cityRepo:             cityRepo,
+		attractionRepo:       attractionRepo,
+		hotelRepo:            hotelRepo,
+		restaurantRepo:       restaurantRepo,
+		transportationRepo:   transportationRepo,
+		countryAPIService:    countryAPIService,
+		cityAPIService:       cityAPIService,
+		attractionAPIService: attractionAPIService,
+		hotelAPIService:      hotelAPIService,
+		restaurantAPIService: restaurantAPIService,
+		// transportationAPIService: transportationAPIService,
 	}
 }
 
@@ -193,54 +193,54 @@ func (s *DataSeeder) SeedRestaurants() error {
 	return nil
 }
 
-func (s *DataSeeder) SeedTransportation() error {
-	log.Println("Starting Transportation Seeding...")
+// func (s *DataSeeder) SeedTransportation() error {
+// 	log.Println("Starting Transportation Seeding...")
 
-	iataMap, err := s.transportationAPIService.CityLocationsToIATA()
-	if err != nil {
-		return fmt.Errorf("failed to map cities to IATA codes: %w", err)
-	}
+// 	iataMap, err := s.transportationAPIService.CityLocationsToIATA()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to map cities to IATA codes: %w", err)
+// 	}
 
-	var CityIDs []int
-	for cityID, code := range iataMap {
-		if code != "" {
-			CityIDs = append(CityIDs, cityID)
-		}
-	}
+// 	var CityIDs []int
+// 	for cityID, code := range iataMap {
+// 		if code != "" {
+// 			CityIDs = append(CityIDs, cityID)
+// 		}
+// 	}
 
-	for i, FromCityID := range CityIDs {
-		for j := i + 1; j < len(CityIDs) && j < i+50; j++ {
-			ToCityID := CityIDs[j]
+// 	for i, FromCityID := range CityIDs {
+// 		for j := i + 1; j < len(CityIDs) && j < i+50; j++ {
+// 			ToCityID := CityIDs[j]
 
-			fromCityID := iataMap[FromCityID]
-			toCityID := iataMap[ToCityID]
-			if fromCityID == toCityID {
-				continue
-			}
+// 			fromCityID := iataMap[FromCityID]
+// 			toCityID := iataMap[ToCityID]
+// 			if fromCityID == toCityID {
+// 				continue
+// 			}
 
-			flightOffer, err := s.transportationAPIService.FindBestFlightOffer(fromCityID, toCityID)
+// 			flightOffer, err := s.transportationAPIService.FindBestFlightOffer(fromCityID, toCityID)
 
-			if err != nil {
-				log.Printf("ERROR flight search %s -> %s: %v", fromCityID, toCityID, err)
-				time.Sleep(3 * time.Second)
-				continue
-			}
+// 			if err != nil {
+// 				log.Printf("ERROR flight search %s -> %s: %v", fromCityID, toCityID, err)
+// 				time.Sleep(3 * time.Second)
+// 				continue
+// 			}
 
-			if flightOffer != nil {
-				flightOffer.FromCityID = FromCityID
-				flightOffer.ToCityID = ToCityID
+// 			if flightOffer != nil {
+// 				flightOffer.FromCityID = FromCityID
+// 				flightOffer.ToCityID = ToCityID
 
-				if _, err := s.transportationRepo.Upsert(flightOffer); err != nil {
-					log.Printf("CRITICAL DB ERROR upserting flight route: %v", err)
-				}
-			}
-			time.Sleep(3 * time.Second)
-		}
-	}
+// 				if _, err := s.transportationRepo.Upsert(flightOffer); err != nil {
+// 					log.Printf("CRITICAL DB ERROR upserting flight route: %v", err)
+// 				}
+// 			}
+// 			time.Sleep(3 * time.Second)
+// 		}
+// 	}
 
-	log.Println("Ending transportation seeding proccess...")
-	return nil
-}
+// 	log.Println("Ending transportation seeding proccess...")
+// 	return nil
+// }
 
 func (s *DataSeeder) SeedAttractions() error {
 	log.Println("Starting Attraction Seeding process...")

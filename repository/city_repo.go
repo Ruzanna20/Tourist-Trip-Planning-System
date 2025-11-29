@@ -91,3 +91,38 @@ func (r *CityRepository) GetAllCityLocations() ([]CityLocation, error) {
 
 	return locations, nil
 }
+
+func (r *CityRepository) GetAllCities() ([]models.City, error) {
+	query := `SELECT city_id,country_id,name,latitude,longitude,description,created_at,updated_at
+			  FROM cities;`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch all city locations: %w", err)
+	}
+	defer rows.Close()
+
+	var cities []models.City
+	for rows.Next() {
+		var city models.City
+		if err := rows.Scan(
+			&city.CityID,
+			&city.CountryID,
+			&city.Name,
+			&city.Latitude,
+			&city.Longitude,
+			&city.Description,
+			&city.CreatedAt,
+			&city.UpdatedAt,
+		); err != nil {
+			log.Printf("Error scanning city location row: %v", err)
+			continue
+		}
+		cities = append(cities, city)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error after scanning city rows: %w", err)
+	}
+	return cities, nil
+}

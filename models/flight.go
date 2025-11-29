@@ -2,12 +2,11 @@ package models
 
 import "time"
 
-type Transportation struct {
-	TransportID     int       `json:"transport_id" db:"transport_id"`
+type Flight struct {
+	FlightID        int       `json:"flight_id" db:"flight_id"`
 	FromCityID      int       `json:"from_city_id" db:"from_city_id"`
 	ToCityID        int       `json:"to_city_id" db:"to_city_id"`
-	Type            string    `json:"type" db:"type"`
-	Carrier         string    `json:"carrier" db:"carrier"`
+	Airline         string    `json:"airline" db:"airline"`
 	DurationMinutes int       `json:"duration_minutes" db:"duration_minutes"`
 	Price           float64   `json:"price" db:"price"`
 	Currency        string    `json:"currency" db:"currency"`
