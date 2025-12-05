@@ -1,154 +1,205 @@
 package main
 
-// import (
-// 	"log"
+import (
+	"flag"
+	"log"
+	"os"
 
-// 	//"time"
-// 	"travel-planning/database"
+	//"time"
+	"travel-planning/database"
+	"travel-planning/handlers"
+	"travel-planning/server"
 
-// 	// jobservice "travel-planning/jobService"
-// 	"travel-planning/repository"
-// 	"travel-planning/services"
-// )
+	// jobservice "travel-planning/jobService"
+	"travel-planning/repository"
+	"travel-planning/services"
+)
 
-// func main() {
-// 	log.Println("Start")
+func main() {
+	log.Println("Start")
+	seedFlag := flag.Bool("seed", false, "Set to true ran data seeding job")
+	flag.Parse()
 
-// 	db, err := database.NewDB()
-// 	if err != nil {
-// 		log.Fatalf("FATAL: DB connection failed: %v", err)
-// 	}
-// 	defer db.Close()
+	db, err := database.NewDB()
+	if err != nil {
+		log.Fatalf("FATAL: DB connection failed: %v", err)
+	}
+	defer db.Close()
 
-// 	sqlConn := db.GetConn()
-// 	countryRepo := repository.NewCountryRepository(sqlConn)
-// 	cityRepo := repository.NewCityRepository(sqlConn)
-// 	attractionRepo := repository.NewAttractionRepository(sqlConn)
-// 	hotelRepo := repository.NewHotelRepository(sqlConn)
-// 	restaurantRepo := repository.NewRestaurantRepository(sqlConn)
-// 	transportationRepo := repository.NewTransportationRepository(sqlConn)
-// 	amadeusService := services.NewAmadeusService()
-// 	countryAPIService := services.NewCountryAPIService()
-// 	cityAPIService := services.NewCityAPIService()
-// 	attractionAPIService := services.NewAttractionAPIService()
-// 	foursquareAPIService := services.NewFoursquareService()
-// 	hotelAPIService := services.NewHotelAPIService(amadeusService, foursquareAPIService)
-// 	restaurantAPIService := services.NewRestaurantAPIService(amadeusService)
-// 	transportationAPIService := services.NewTransportationAPIService(amadeusService, cityRepo)
-// 	seeder := services.NewDataSeeder(countryRepo,
-// 		cityRepo,
-// 		attractionRepo,
-// 		hotelRepo,
-// 		restaurantRepo,
-// 		transportationRepo,
-// 		countryAPIService,
-// 		cityAPIService,
-// 		attractionAPIService,
-// 		hotelAPIService,
-// 		restaurantAPIService,
-// 		transportationAPIService)
+	sqlConn := db.GetConn()
 
-// 	log.Println("Starting Seeding...")
+	countryRepo := repository.NewCountryRepository(sqlConn)
+	cityRepo := repository.NewCityRepository(sqlConn)
+	attractionRepo := repository.NewAttractionRepository(sqlConn)
+	hotelRepo := repository.NewHotelRepository(sqlConn)
+	restaurantRepo := repository.NewRestaurantRepository(sqlConn)
+	flightRepo := repository.NewFlightRepository(sqlConn)
 
-// 	//country
-// 	err = seeder.SeedCountries()
-// 	if err != nil {
-// 		log.Fatalf("CRITICAL: Data Seeding failed. Error: %v", err)
-// 	}
+	tripRepo := repository.NewTripRepository(sqlConn)
+	tripItineraryRepo := repository.NewTripItineraryRepository(sqlConn)
 
-// 	// //city
-// 	// if err = seeder.SeedCities(); err != nil {
-// 	// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
-// 	// }
+	amadeusService := services.NewAmadeusService()
+	countryAPIService := services.NewCountryAPIService()
+	cityAPIService := services.NewCityAPIService()
+	attractionAPIService := services.NewAttractionAPIService()
+	foursquareAPIService := services.NewFoursquareService()
+	hotelAPIService := services.NewHotelAPIService(amadeusService, foursquareAPIService)
+	restaurantAPIService := services.NewRestaurantAPIService(amadeusService)
+	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo)
 
-// 	// //attraction
-// 	// if err = seeder.SeedAttractions(); err != nil {
-// 	// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
+	tripPlanningService := services.NewTripPlanningService(tripRepo, tripItineraryRepo)
 
-// 	// }
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "default-development-secret-must-be-changed"
+	}
+	jwtService := services.NewJWTService(jwtSecret, "5")
 
-// 	// hotel
-// 	if err = seeder.SeedHotels(); err != nil {
-// 		log.Fatalf("CRITICAL: Hotel Data seeding failed. Error: %v", err)
-// 	}
+	seeder := services.NewDataSeeder(countryRepo,
+		cityRepo,
+		attractionRepo,
+		hotelRepo,
+		restaurantRepo,
+		flightRepo,
+		countryAPIService,
+		cityAPIService,
+		attractionAPIService,
+		hotelAPIService,
+		restaurantAPIService,
+		flightAPIService)
 
-// 	// //restaurant
-// 	// if err = seeder.SeedRestaurants(); err != nil {
-// 	// 	log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
-// 	// }
+	if *seedFlag {
+		log.Println("Starting Seeding Job...")
+		//country
+		err = seeder.SeedCountries()
+		if err != nil {
+			log.Fatalf("CRITICAL: Data Seeding failed. Error: %v", err)
+		}
 
-// 	// //transportation
-// 	// if err = seeder.SeedTransportation(); err != nil {
-// 	// 	log.Fatalf("CRITICAL: Transportation Seeding failed. Error: %v", err)
-// 	// }
+		// //city
+		// if err = seeder.SeedCities(); err != nil {
+		// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
+		// }
 
-// 	// log.Println("Jobs started in background...")
-// 	// Interval := 24 * time.Hour
+		// //attraction
+		// if err = seeder.SeedAttractions(); err != nil {
+		// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
 
-// 	// countryJob := jobservice.NewCountryJob(countryRepo)
-// 	// go func() {
-// 	// 	log.Printf("Country Job run every %s", Interval)
+		// }
 
-// 	// 	ticker := time.NewTicker(Interval)
-// 	// 	defer ticker.Stop()
+		// // hotel
+		// if err = seeder.SeedHotels(); err != nil {
+		// 	log.Fatalf("CRITICAL: Hotel Data seeding failed. Error: %v", err)
+		// }
 
-// 	// 	countryJob.RunJob()
-// 	// 	for range ticker.C {
-// 	// 		countryJob.RunJob()
-// 	// 	}
-// 	// }()
+		// //restaurant
+		// if err = seeder.SeedRestaurants(); err != nil {
+		// 	log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
+		// }
 
-// 	// cityJob := jobservice.NewCityJob(seeder)
-// 	// go func ()  {
-// 	// 	log.Printf("City Job run every %s", Interval)
+		// //flight
+		// if err = seeder.SeedFlights(); err != nil {
+		// 	log.Fatalf("CRITICAL: Flights Seeding failed. Error: %v", err)
+		// }
 
-// 	// 	ticker := time.NewTicker(Interval)
-// 	// 	defer ticker.Stop()
+		log.Println("Seeding job finished. Exiting.")
+		os.Exit(0)
+	}
 
-// 	// 	cityJob.RunJob()
-// 	// 	for range ticker.C {
-// 	// 		cityJob.RunJob()
-// 	// 	}
-// 	// }()
+	getResourceHandlers := handlers.NewAppHandlers(
+		hotelRepo,
+		cityRepo,
+		attractionRepo,
+		countryRepo,
+		restaurantRepo,
+		flightRepo,
+		tripRepo,
+		tripPlanningService)
+	authHandlers := handlers.NewAuthHandlers(jwtService, cityRepo)
 
-// 	// attractionJob := jobservice.NewAttractionJob(seeder)
-// 	// go func ()  {
-// 	// 	log.Printf("Attraction Job run every %s", Interval)
+	appServer := server.NewAppServer(getResourceHandlers, authHandlers, jwtService)
+	appServer.Start(":8080")
 
-// 	// 	ticker := time.NewTicker(Interval)
-// 	// 	defer ticker.Stop()
+	// log.Println("Jobs started in background...")
+	// Interval := 24 * time.Hour
 
-// 	// 	attractionJob.RunJob()
-// 	// 	for range ticker.C {
-// 	// 		attraction.RunJob()
-// 	// 	}
-// 	// }()
+	// countryJob := jobservice.NewCountryJob(countryRepo)
+	// go func() {
+	// 	log.Printf("Country Job run every %s", Interval)
 
-// 	// hotelJob := jobservice.NewHotelJob(cityRepo, hotelRepo, hotelAPIService)
-// 	// go func() {
-// 	// 	log.Printf("Hotel Job run every %s", Interval)
+	// 	ticker := time.NewTicker(Interval)
+	// 	defer ticker.Stop()
 
-// 	// 	ticker := time.NewTicker(Interval)
-// 	// 	defer ticker.Stop()
+	// 	countryJob.RunJob()
+	// 	for range ticker.C {
+	// 		countryJob.RunJob()
+	// 	}
+	// }()
 
-// 	// 	hotelJob.RunJob()
-// 	// 	for range ticker.C {
-// 	// 		hotelJob.RunJob()
-// 	// 	}
-// 	// }()
+	// cityJob := jobservice.NewCityJob(seeder)
+	// go func ()  {
+	// 	log.Printf("City Job run every %s", Interval)
 
-// 	// restaurantJob := jobservice.NewRestaurantJob(cityRepo, restaurantRepo, restaurantAPIService)
-// 	// go func() {
-// 	// 	log.Printf("Restaurant Job run every %s", Interval)
+	// 	ticker := time.NewTicker(Interval)
+	// 	defer ticker.Stop()
 
-// 	// 	ticker := time.NewTicker(Interval)
-// 	// 	defer ticker.Stop()
+	// 	cityJob.RunJob()
+	// 	for range ticker.C {
+	// 		cityJob.RunJob()
+	// 	}
+	// }()
 
-// 	// 	restaurantJob.RunJob()
-// 	// 	for range ticker.C {
-// 	// 		restaurantJob.RunJob()
-// 	// 	}
-// 	// }()
+	// attractionJob := jobservice.NewAttractionJob(seeder)
+	// go func ()  {
+	// 	log.Printf("Attraction Job run every %s", Interval)
 
-// 	// select {}
-// }
+	// 	ticker := time.NewTicker(Interval)
+	// 	defer ticker.Stop()
+
+	// 	attractionJob.RunJob()
+	// 	for range ticker.C {
+	// 		attraction.RunJob()
+	// 	}
+	// }()
+
+	// hotelJob := jobservice.NewHotelJob(cityRepo, hotelRepo, hotelAPIService)
+	// go func() {
+	// 	log.Printf("Hotel Job run every %s", Interval)
+
+	// 	ticker := time.NewTicker(Interval)
+	// 	defer ticker.Stop()
+
+	// 	hotelJob.RunJob()
+	// 	for range ticker.C {
+	// 		hotelJob.RunJob()
+	// 	}
+	// }()
+
+	// restaurantJob := jobservice.NewRestaurantJob(cityRepo, restaurantRepo, restaurantAPIService)
+	// go func() {
+	// 	log.Printf("Restaurant Job run every %s", Interval)
+
+	// 	ticker := time.NewTicker(Interval)
+	// 	defer ticker.Stop()
+
+	// 	restaurantJob.RunJob()
+	// 	for range ticker.C {
+	// 		restaurantJob.RunJob()
+	// 	}
+	// }()
+
+	// flightJob := jobservice.NewFlightJob(cityRepo,amadeusService)
+	// go func() {
+	// 	log.Printf("Flight Job run every %s", Interval)
+
+	// 	ticker := time.NewTicker(Interval)
+	// 	defer ticker.Stop()
+
+	// 	flightJob.RunJob()
+	// 	for range ticker.C {
+	// 		flightJob.RunJob()
+	// 	}
+	// }()
+
+	// select {}
+}

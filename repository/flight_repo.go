@@ -3,60 +3,100 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 	"travel-planning/models"
 )
 
-type TransportationRepository struct {
+type FlightRepository struct {
 	db *sql.DB
 }
 
-func NewTransportationRepository(db *sql.DB) *TransportationRepository {
-	return &TransportationRepository{
+func NewFlightRepository(db *sql.DB) *FlightRepository {
+	return &FlightRepository{
 		db: db,
 	}
 }
 
-func (r *TransportationRepository) Upsert(transportation *models.Flight) (int, error) {
-	query := `INSERT INTO transportation (
-        from_city_id, to_city_id, type, carrier, duration_minutes, price, 
+func (r *FlightRepository) Upsert(flight *models.Flight) (int, error) {
+	query := `INSERT INTO flights (
+        from_city_id, to_city_id, airline, duration_minutes, price, 
         currency, website, created_at, updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    ON CONFLICT (from_city_id, to_city_id, type) DO UPDATE 
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (from_city_id, to_city_id, airline) DO UPDATE 
     SET 
-        carrier = EXCLUDED.carrier,
         duration_minutes = EXCLUDED.duration_minutes,
         price = EXCLUDED.price,
         currency = EXCLUDED.currency,
-        website = COALESCE(EXCLUDED.website, transportation.website),
+        website = COALESCE(EXCLUDED.website, flights.website),
         updated_at = NOW() AT TIME ZONE 'Asia/Yerevan' 
-    RETURNING transport_id;`
+    RETURNING flight_id;`
 
-	if transportation.CreatedAt.IsZero() {
-		transportation.CreatedAt = time.Now()
+	if flight.CreatedAt.IsZero() {
+		flight.CreatedAt = time.Now()
 	}
 
-	if transportation.UpdatedAt.IsZero() {
-		transportation.UpdatedAt = time.Now()
+	if flight.UpdatedAt.IsZero() {
+		flight.UpdatedAt = time.Now()
 	}
 
-	var transportationID int
+	var flightID int
 	err := r.db.QueryRow(
 		query,
-		transportation.FromCityID,
-		transportation.ToCityID,
-		transportation.Airline,
-		transportation.DurationMinutes,
-		transportation.Price,
-		transportation.Currency,
-		transportation.Website,
-		transportation.CreatedAt,
-		transportation.UpdatedAt,
-	).Scan(&transportationID)
+		flight.FromCityID,
+		flight.ToCityID,
+		flight.Airline,
+		flight.DurationMinutes,
+		flight.Price,
+		flight.Currency,
+		flight.Website,
+		flight.CreatedAt,
+		flight.UpdatedAt,
+	).Scan(&flightID)
 
 	if err != nil {
-		return 0, fmt.Errorf("ERROR upserting transportation between %d and %d: %w", transportation.FromCityID, transportation.ToCityID, err)
+		return 0, fmt.Errorf("ERROR upserting flight between %d and %d: %w", flight.FromCityID, flight.ToCityID, err)
 	}
-	return transportationID, nil
+	return flightID, nil
+}
+
+func (r *FlightRepository) GetAllFlights() ([]models.Flight, error) {
+	query := `SELECT flight_id, from_city_id, to_city_id, airline, duration_minutes, price, currency, website, created_at, updated_at
+              FROM flights;`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch all hotels: %w", err)
+	}
+	defer rows.Close()
+
+	var flights []models.Flight
+	for rows.Next() {
+		var f models.Flight
+		var websiteSql sql.NullString
+
+		if err := rows.Scan(
+			&f.FlightID,
+			&f.FromCityID,
+			&f.ToCityID,
+			&f.Airline,
+			&f.DurationMinutes,
+			&f.Price,
+			&f.Currency,
+			&websiteSql,
+			&f.CreatedAt,
+			&f.UpdatedAt,
+		); err != nil {
+			log.Printf("Error scanning flight row: %v", err)
+			continue
+		}
+		f.Website = websiteSql.String
+		flights = append(flights, f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows interation error: %w", err)
+	}
+	return flights, nil
 }

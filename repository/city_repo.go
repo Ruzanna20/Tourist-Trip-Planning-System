@@ -65,10 +65,11 @@ type CityLocation struct {
 	Name      string
 	Latitude  float64
 	Longitude float64
+	IataCode  string `json:"iata_code" db:"iata_code"`
 }
 
 func (r *CityRepository) GetAllCityLocations() ([]CityLocation, error) {
-	query := `SELECT city_id, name, latitude, longitude FROM cities;`
+	query := `SELECT city_id, name, latitude, longitude, iata_code FROM cities;`
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch all city locations: %w", err)
@@ -78,10 +79,12 @@ func (r *CityRepository) GetAllCityLocations() ([]CityLocation, error) {
 	var locations []CityLocation
 	for rows.Next() {
 		var loc CityLocation
-		if err := rows.Scan(&loc.ID, &loc.Name, &loc.Latitude, &loc.Longitude); err != nil {
+		var iataSql sql.NullString
+		if err := rows.Scan(&loc.ID, &loc.Name, &loc.Latitude, &loc.Longitude, &iataSql); err != nil {
 			log.Printf("Error scanning city location row: %v", err)
 			continue
 		}
+		loc.IataCode = iataSql.String
 		locations = append(locations, loc)
 	}
 
@@ -125,4 +128,14 @@ func (r *CityRepository) GetAllCities() ([]models.City, error) {
 		return nil, fmt.Errorf("error after scanning city rows: %w", err)
 	}
 	return cities, nil
+}
+
+func (r *CityRepository) UpsertCityIata(cityID int, iataCode string) error {
+	query := `UPDATE cities SET iata_code = $1, updated_at = NOW() AT TIME ZONE 'Asia/Yerevan'  WHERE city_id = $2;`
+
+	_, err := r.db.Exec(query, iataCode, cityID)
+	if err != nil {
+		return fmt.Errorf("failed to update IATA code for city %d: %w", cityID, err)
+	}
+	return nil
 }

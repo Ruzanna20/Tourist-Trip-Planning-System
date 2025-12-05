@@ -12,6 +12,15 @@ type Trip struct {
 	TotalPrice        float64   `json:"total_price" db:"total_price"`
 	Currency          string    `json:"currency" db:"currency"`
 	Status            string    `json:"status" db:"status"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type TripPlanRequest struct {
+	Name              string  `json:"name"`
+	StartDate         string  `json:"start_date"`
+	EndDate           string  `json:"end_date"`
+	BudgetAmount      float64 `json:"budget_amount"`
+	Currency          string  `json:"currency"`
+	DestinationCityID int     `json:"destination_city_id"`
 }

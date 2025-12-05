@@ -8,6 +8,7 @@ type City struct {
 	Name        string    `json:"name" db:"name"`
 	Latitude    float64   `json:"latitude" db:"latitude"`
 	Longitude   float64   `json:"longitude" db:"longitude"`
+	IataCode    string    `json:"iata_code" db:"iata_code"`
 	Description string    `json:"description" db:"description"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`

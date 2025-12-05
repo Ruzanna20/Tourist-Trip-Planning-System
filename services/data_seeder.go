@@ -9,19 +9,19 @@ import (
 )
 
 type DataSeeder struct {
-	countryRepo        *repository.CountryRepository
-	cityRepo           *repository.CityRepository
-	attractionRepo     *repository.AttractionRepository
-	hotelRepo          *repository.HotelRepository
-	restaurantRepo     *repository.RestaurantRepository
-	transportationRepo *repository.TransportationRepository
+	countryRepo    *repository.CountryRepository
+	cityRepo       *repository.CityRepository
+	attractionRepo *repository.AttractionRepository
+	hotelRepo      *repository.HotelRepository
+	restaurantRepo *repository.RestaurantRepository
+	flightRepo     *repository.FlightRepository
 
 	countryAPIService    *CountryAPIService
 	cityAPIService       *CityAPIService
 	attractionAPIService *AttractionAPIService
 	hotelAPIService      *HotelAPIService
 	restaurantAPIService *RestaurantAPIService
-	// transportationAPIService *TransportationAPIService
+	flightAPIService     *FlightAPIService
 }
 
 func NewDataSeeder(
@@ -30,13 +30,13 @@ func NewDataSeeder(
 	attractionRepo *repository.AttractionRepository,
 	hotelRepo *repository.HotelRepository,
 	restaurantRepo *repository.RestaurantRepository,
-	transportationRepo *repository.TransportationRepository,
+	flightRepo *repository.FlightRepository,
 	countryAPIService *CountryAPIService,
 	cityAPIService *CityAPIService,
 	attractionAPIService *AttractionAPIService,
 	hotelAPIService *HotelAPIService,
 	restaurantAPIService *RestaurantAPIService,
-	// transportationAPIService *TransportationAPIService,
+	flightAPIService *FlightAPIService,
 ) *DataSeeder {
 	return &DataSeeder{
 		countryRepo:          countryRepo,
@@ -44,13 +44,13 @@ func NewDataSeeder(
 		attractionRepo:       attractionRepo,
 		hotelRepo:            hotelRepo,
 		restaurantRepo:       restaurantRepo,
-		transportationRepo:   transportationRepo,
+		flightRepo:           flightRepo,
 		countryAPIService:    countryAPIService,
 		cityAPIService:       cityAPIService,
 		attractionAPIService: attractionAPIService,
 		hotelAPIService:      hotelAPIService,
 		restaurantAPIService: restaurantAPIService,
-		// transportationAPIService: transportationAPIService,
+		flightAPIService:     flightAPIService,
 	}
 }
 
@@ -186,61 +186,88 @@ func (s *DataSeeder) SeedRestaurants() error {
 			}
 		}
 
-		time.Sleep(1500 * time.Millisecond)
+		time.Sleep(3 * time.Second)
 
 	}
 	log.Println("Ending restaurants seeding proccess...")
 	return nil
 }
 
-// func (s *DataSeeder) SeedTransportation() error {
-// 	log.Println("Starting Transportation Seeding...")
+func (s *DataSeeder) processFlightRoute(fromCityID, toCityID int, fromIata, toIata string) error {
+	flightOffer, err := s.flightAPIService.FindBestFlightOffer(fromIata, toIata)
 
-// 	iataMap, err := s.transportationAPIService.CityLocationsToIATA()
-// 	if err != nil {
-// 		return fmt.Errorf("failed to map cities to IATA codes: %w", err)
-// 	}
+	if err != nil {
+		return fmt.Errorf("flight search failed: %w", err)
+	}
 
-// 	var CityIDs []int
-// 	for cityID, code := range iataMap {
-// 		if code != "" {
-// 			CityIDs = append(CityIDs, cityID)
-// 		}
-// 	}
+	if flightOffer != nil {
+		flightOffer.FromCityID = fromCityID
+		flightOffer.ToCityID = toCityID
 
-// 	for i, FromCityID := range CityIDs {
-// 		for j := i + 1; j < len(CityIDs) && j < i+50; j++ {
-// 			ToCityID := CityIDs[j]
+		if _, err := s.flightRepo.Upsert(flightOffer); err != nil {
+			return fmt.Errorf("critical DB error upserting flight route: %w", err)
+		}
+	} else {
+		log.Printf("INFO: No flight found for %s -> %s.", fromIata, toIata)
+	}
+	return nil
+}
 
-// 			fromCityID := iataMap[FromCityID]
-// 			toCityID := iataMap[ToCityID]
-// 			if fromCityID == toCityID {
-// 				continue
-// 			}
+func (s *DataSeeder) SeedFlights() error {
+	log.Println("Starting Flights Seeding...")
 
-// 			flightOffer, err := s.transportationAPIService.FindBestFlightOffer(fromCityID, toCityID)
+	iataMap, err := s.flightAPIService.CityLocationsToIATA()
+	if err != nil {
+		return fmt.Errorf("failed to map cities to IATA codes: %w", err)
+	}
 
-// 			if err != nil {
-// 				log.Printf("ERROR flight search %s -> %s: %v", fromCityID, toCityID, err)
-// 				time.Sleep(3 * time.Second)
-// 				continue
-// 			}
+	var cityIDs []int
+	for cityID, code := range iataMap {
+		if code != "" {
+			cityIDs = append(cityIDs, cityID)
+		}
+	}
 
-// 			if flightOffer != nil {
-// 				flightOffer.FromCityID = FromCityID
-// 				flightOffer.ToCityID = ToCityID
+	const limit = 5
+	totalCities := len(cityIDs)
+	log.Printf("Total possible flight routes to check: %d x %d (max) = %d routes.", totalCities, limit, totalCities*limit)
 
-// 				if _, err := s.transportationRepo.Upsert(flightOffer); err != nil {
-// 					log.Printf("CRITICAL DB ERROR upserting flight route: %v", err)
-// 				}
-// 			}
-// 			time.Sleep(3 * time.Second)
-// 		}
-// 	}
+	for i := 0; i < totalCities; i++ {
+		fromCityID := cityIDs[i]
+		fromIata := iataMap[fromCityID]
 
-// 	log.Println("Ending transportation seeding proccess...")
-// 	return nil
-// }
+		if i%50 == 0 {
+			log.Printf("Progress: Starting search for city #%d of %d (IATA: %s)...", i, totalCities, fromIata) // <<< Աշխատանքի Ընթացք
+		}
+
+		maxRange := i + limit
+		if maxRange > totalCities {
+			maxRange = totalCities
+		}
+
+		for j := i + 1; j < maxRange; j++ {
+			toCityID := cityIDs[j]
+			toIata := iataMap[toCityID]
+
+			if fromIata == toIata {
+				continue
+			}
+
+			if err := s.processFlightRoute(fromCityID, toCityID, fromIata, toIata); err != nil {
+				log.Printf("Route failed (%s -> %s): %v", fromIata, toIata, err)
+			}
+			time.Sleep(3 * time.Second)
+
+			if err := s.processFlightRoute(toCityID, fromCityID, toIata, fromIata); err != nil {
+				log.Printf("Route failed (%s -> %s): %v", toIata, fromIata, err)
+			}
+			time.Sleep(3 * time.Second)
+		}
+	}
+
+	log.Println("Ending flights seeding proccess...")
+	return nil
+}
 
 func (s *DataSeeder) SeedAttractions() error {
 	log.Println("Starting Attraction Seeding process...")
