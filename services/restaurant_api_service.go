@@ -3,90 +3,88 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 	"travel-planning/models"
 )
 
+const restaurantAPIUrl = "https://overpass-api.de/api/interpreter"
+
 type RestaurantAPIService struct {
-	amadeus       *AmadeusService
-	searcRadiusKm int
+	client         *http.Client
+	searchRadiusKm int
 }
 
-func NewRestaurantAPIService(amadeus *AmadeusService) *RestaurantAPIService {
+func NewRestaurantAPIService() *RestaurantAPIService {
 	return &RestaurantAPIService{
-		amadeus:       amadeus,
-		searcRadiusKm: 10,
+		client:         &http.Client{Timeout: 60 * time.Second},
+		searchRadiusKm: 10,
 	}
 }
 
-type RestaurantSearchResponse struct {
-	Data []struct {
-		Name     string   `json:"name"`
-		Category []string `json:"category"`
-		GeoCode  struct {
-			Latitude  float64 `json:"latitude"`
-			Longitude float64 `json:"longitude"`
-		} `json:"geoCode"`
-	} `json:"data"`
-	Errors []interface{} `json:"errors"`
+type RestaurantAPIResponse struct {
+	Elements []struct {
+		Lat  float64           `json:"lat"`
+		Lon  float64           `json:"lon"`
+		Tags map[string]string `json:"tags"`
+	} `json:"elements"`
 }
 
-func (s *RestaurantAPIService) SearchRestaurantsByGeo(lat, lon float64, radiusKm int) (*RestaurantSearchResponse, error) {
-	endpoint := "/v1/reference-data/locations/pois"
+func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float64) ([]*models.Restaurant, error) {
+	query := fmt.Sprintf(`
+		[out:json][timeout:60];
+		(
+		  node(around:%d, %.6f, %.6f)["amenity"="restaurant"];
+		  node(around:%d, %.6f, %.6f)["amenity"="cafe"];
+		  node(around:%d, %.6f, %.6f)["amenity"="bar"];
+		);
+		out center 50; 
+	`, s.searchRadiusKm*1000, lat, lon, s.searchRadiusKm*1000, lat, lon, s.searchRadiusKm*1000, lat, lon)
 
-	params := url.Values{}
-	params.Add("latitude", strconv.FormatFloat(lat, 'f', 6, 64))
-	params.Add("longitude", strconv.FormatFloat(lon, 'f', 6, 64))
-	params.Add("categories", "RESTAURANT")
-	params.Add("radius", fmt.Sprintf("%d", radiusKm))
-	params.Add("radiusUnit", "KM")
-	params.Add("page[limit]", "50")
+	data := url.Values{}
+	data.Set("data", query)
 
-	resp, err := s.amadeus.ExecuteGetRequest(endpoint, params)
+	resp, err := s.client.Post(
+		restaurantAPIUrl,
+		"application/x-www-form-urlencoded",
+		strings.NewReader(data.Encode()),
+	)
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to make overpass API request: %w", err)
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
 	}
+	defer resp.Body.Close()
 
-	var apirestaurants RestaurantSearchResponse
+	var apirestaurants RestaurantAPIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apirestaurants); err != nil {
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
-	if len(apirestaurants.Errors) > 0 {
-		log.Printf("Amadeus API returned errors: %v", apirestaurants.Errors)
-		return nil, fmt.Errorf("amadeus API reported data errors")
-	}
-
-	return &apirestaurants, nil
-}
-
-func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float64) ([]*models.Restaurant, error) {
-	resp, err := s.SearchRestaurantsByGeo(lat, lon, s.searcRadiusKm)
-	if err != nil {
-		return nil, fmt.Errorf("amadues search failed for city %v:%w", cityID, err)
-	}
-
 	var restaurants []*models.Restaurant
-	for _, restaurant := range resp.Data {
+	for _, element := range apirestaurants.Elements {
+		name := element.Tags["name:en"]
+		if name == "" {
+			continue
+		}
+		cuisine := element.Tags["cuisine"]
+		phone := element.Tags["phone"]
+		website := element.Tags["website"]
+
 		newRestaurant := &models.Restaurant{
 			CityID:       cityID,
-			Name:         restaurant.Name,
-			CuisineType:  strings.Join(restaurant.Category, ","),
-			Address:      "",
+			Name:         name,
+			CuisineType:  strings.TrimSpace(cuisine),
+			Address:      fmt.Sprintf("%.6f, %.6f", element.Lat, element.Lon),
 			Rating:       1,
-			PriceRange:   "",
-			Phone:        "",
-			Website:      "",
+			PriceRange:   element.Tags["cuisine:price"],
+			Phone:        phone,
+			Website:      website,
 			ImageURL:     "",
 			OpeningHours: "",
 			CreatedAt:    time.Now(),
@@ -94,6 +92,5 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 		}
 		restaurants = append(restaurants, newRestaurant)
 	}
-
 	return restaurants, nil
 }

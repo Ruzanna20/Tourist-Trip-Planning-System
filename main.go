@@ -35,6 +35,8 @@ func main() {
 	restaurantRepo := repository.NewRestaurantRepository(sqlConn)
 	flightRepo := repository.NewFlightRepository(sqlConn)
 
+	userRepo := repository.NewUserRepository(sqlConn)
+	userPreferencesRepo := repository.NewUserPreferencesRepository(sqlConn)
 	tripRepo := repository.NewTripRepository(sqlConn)
 	tripItineraryRepo := repository.NewTripItineraryRepository(sqlConn)
 
@@ -44,7 +46,7 @@ func main() {
 	attractionAPIService := services.NewAttractionAPIService()
 	foursquareAPIService := services.NewFoursquareService()
 	hotelAPIService := services.NewHotelAPIService(amadeusService, foursquareAPIService)
-	restaurantAPIService := services.NewRestaurantAPIService(amadeusService)
+	restaurantAPIService := services.NewRestaurantAPIService()
 	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo)
 
 	tripPlanningService := services.NewTripPlanningService(tripRepo, tripItineraryRepo)
@@ -92,10 +94,10 @@ func main() {
 		// 	log.Fatalf("CRITICAL: Hotel Data seeding failed. Error: %v", err)
 		// }
 
-		// //restaurant
-		// if err = seeder.SeedRestaurants(); err != nil {
-		// 	log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
-		// }
+		//restaurant
+		if err = seeder.SeedRestaurants(); err != nil {
+			log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
+		}
 
 		// //flight
 		// if err = seeder.SeedFlights(); err != nil {
@@ -113,9 +115,11 @@ func main() {
 		countryRepo,
 		restaurantRepo,
 		flightRepo,
+		userRepo,
+		userPreferencesRepo,
 		tripRepo,
 		tripPlanningService)
-	authHandlers := handlers.NewAuthHandlers(jwtService, cityRepo)
+	authHandlers := handlers.NewAuthHandlers(jwtService, cityRepo, userRepo)
 
 	appServer := server.NewAppServer(getResourceHandlers, authHandlers, jwtService)
 	appServer.Start(":8080")

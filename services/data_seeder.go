@@ -173,7 +173,7 @@ func (s *DataSeeder) SeedRestaurants() error {
 			cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude,
 		)
 		if err != nil {
-			log.Printf("Error fetching hotels for %s: %v", cityLoc.Name, err)
+			log.Printf("Error fetching restaurants for %s: %v", cityLoc.Name, err)
 			time.Sleep(1500 * time.Millisecond)
 			continue
 		}
@@ -181,7 +181,7 @@ func (s *DataSeeder) SeedRestaurants() error {
 		for _, restaurant := range restaurants {
 			_, err := s.restaurantRepo.Upsert(restaurant)
 			if err != nil {
-				log.Printf("Failed to insert hotel %s: %v", restaurant.Name, err)
+				log.Printf("Failed to insert restaurant %s: %v", restaurant.Name, err)
 				continue
 			}
 		}

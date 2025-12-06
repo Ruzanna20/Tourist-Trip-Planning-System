@@ -37,9 +37,11 @@ func (s *AppServer) Start(port string) {
 	http.HandleFunc("/api/hotels", authMiddleware(s.ResourceHandlers.GetAllHotelsHandler))
 	http.HandleFunc("/api/restaurants", authMiddleware(s.ResourceHandlers.GetAllRestaurantssHandler))
 	http.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler))
+	http.HandleFunc("/api/trips", authMiddleware(s.ResourceHandlers.GetTripsHandler))
 
-	http.HandleFunc("/api/trips", authMiddleware(s.ResourceHandlers.CreateTripHandler))
+	http.HandleFunc("/api/users/register", s.ResourceHandlers.RegisterUserHandler)
+	http.HandleFunc("/api/users/preferences", authMiddleware(s.ResourceHandlers.SetPreferencesHandler))
 
-	http.HandleFunc("/api/trip", authMiddleware(s.ResourceHandlers.GetTripsHandler))
+	http.HandleFunc("/api/trips/create", authMiddleware(s.ResourceHandlers.CreateTripHandler))
 	log.Fatal(http.ListenAndServe(port, nil))
 }

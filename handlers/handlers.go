@@ -17,7 +17,9 @@ type AppHandlers struct {
 	RestaurantRepo *repository.RestaurantRepository
 	FlightRepo     *repository.FlightRepository
 
-	TripRepo *repository.TripRepository
+	UserRepo            *repository.UserRepository
+	UserPreferencesRepo *repository.UserPreferencesRepository
+	TripRepo            *repository.TripRepository
 
 	TripPlanningService *services.TripPlanningService
 }
@@ -28,6 +30,8 @@ func NewAppHandlers(HotelRepo *repository.HotelRepository,
 	CountryRepo *repository.CountryRepository,
 	RestaurantRepo *repository.RestaurantRepository,
 	FlightRepo *repository.FlightRepository,
+	UserRepo *repository.UserRepository,
+	UserPreferencesRepo *repository.UserPreferencesRepository,
 	TripRepo *repository.TripRepository,
 	TripPlanningService *services.TripPlanningService,
 ) *AppHandlers {
@@ -38,6 +42,8 @@ func NewAppHandlers(HotelRepo *repository.HotelRepository,
 		CountryRepo:         CountryRepo,
 		RestaurantRepo:      RestaurantRepo,
 		FlightRepo:          FlightRepo,
+		UserRepo:            UserRepo,
+		UserPreferencesRepo: UserPreferencesRepo,
 		TripRepo:            TripRepo,
 		TripPlanningService: TripPlanningService,
 	}
