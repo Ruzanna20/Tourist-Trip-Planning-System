@@ -31,6 +31,7 @@ func (s *AppServer) Start(port string) {
 	authMiddleware := s.JWTService.AuthMiddleware
 
 	http.HandleFunc("/protected", authMiddleware(s.ResourceHandlers.ProtectedHandler))
+
 	http.HandleFunc("/api/cities", authMiddleware(s.ResourceHandlers.GetAllCitiesHandler))
 	http.HandleFunc("/api/countries", authMiddleware(s.ResourceHandlers.GetAllCountriesHandler))
 	http.HandleFunc("/api/attractions", authMiddleware(s.ResourceHandlers.GetAllAttractionssHandler))
@@ -39,9 +40,13 @@ func (s *AppServer) Start(port string) {
 	http.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler))
 	http.HandleFunc("/api/trips", authMiddleware(s.ResourceHandlers.GetTripsHandler))
 
+	http.HandleFunc("/api/trips/", authMiddleware(s.ResourceHandlers.GetTripItineraryHandler))
+	http.HandleFunc("/api/itineraries/", authMiddleware(s.ResourceHandlers.GetActivitiesHandler))
+
 	http.HandleFunc("/api/users/register", s.ResourceHandlers.RegisterUserHandler)
 	http.HandleFunc("/api/users/preferences", authMiddleware(s.ResourceHandlers.SetPreferencesHandler))
 
 	http.HandleFunc("/api/trips/create", authMiddleware(s.ResourceHandlers.CreateTripHandler))
+	http.HandleFunc("/api/reviews", authMiddleware(s.ResourceHandlers.CreateReviewHandler))
 	log.Fatal(http.ListenAndServe(port, nil))
 }

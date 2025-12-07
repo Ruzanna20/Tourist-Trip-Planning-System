@@ -22,6 +22,8 @@ type AppHandlers struct {
 	TripRepo            *repository.TripRepository
 
 	TripPlanningService *services.TripPlanningService
+
+	ReviewRepo *repository.ReviewRepository
 }
 
 func NewAppHandlers(HotelRepo *repository.HotelRepository,
@@ -33,8 +35,8 @@ func NewAppHandlers(HotelRepo *repository.HotelRepository,
 	UserRepo *repository.UserRepository,
 	UserPreferencesRepo *repository.UserPreferencesRepository,
 	TripRepo *repository.TripRepository,
-	TripPlanningService *services.TripPlanningService,
-) *AppHandlers {
+	ReviewRepo *repository.ReviewRepository,
+	TripPlanningService *services.TripPlanningService) *AppHandlers {
 	return &AppHandlers{
 		HotelRepo:           HotelRepo,
 		CityRepo:            CityRepo,
@@ -45,6 +47,7 @@ func NewAppHandlers(HotelRepo *repository.HotelRepository,
 		UserRepo:            UserRepo,
 		UserPreferencesRepo: UserPreferencesRepo,
 		TripRepo:            TripRepo,
+		ReviewRepo:          ReviewRepo,
 		TripPlanningService: TripPlanningService,
 	}
 }

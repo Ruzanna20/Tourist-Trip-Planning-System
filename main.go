@@ -39,6 +39,9 @@ func main() {
 	userPreferencesRepo := repository.NewUserPreferencesRepository(sqlConn)
 	tripRepo := repository.NewTripRepository(sqlConn)
 	tripItineraryRepo := repository.NewTripItineraryRepository(sqlConn)
+	itineraryActivitiesRepo := repository.NewItineraryActivitiesRepository(sqlConn)
+
+	reviewRepo := repository.NewReviewRepository(sqlConn)
 
 	amadeusService := services.NewAmadeusService()
 	countryAPIService := services.NewCountryAPIService()
@@ -49,7 +52,7 @@ func main() {
 	restaurantAPIService := services.NewRestaurantAPIService()
 	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo)
 
-	tripPlanningService := services.NewTripPlanningService(tripRepo, tripItineraryRepo)
+	tripPlanningService := services.NewTripPlanningService(tripRepo, tripItineraryRepo, itineraryActivitiesRepo)
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
@@ -118,7 +121,9 @@ func main() {
 		userRepo,
 		userPreferencesRepo,
 		tripRepo,
+		reviewRepo,
 		tripPlanningService)
+
 	authHandlers := handlers.NewAuthHandlers(jwtService, cityRepo, userRepo)
 
 	appServer := server.NewAppServer(getResourceHandlers, authHandlers, jwtService)

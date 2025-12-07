@@ -120,3 +120,30 @@ func (r *HotelRepository) GetAllHotels() ([]models.Hotel, error) {
 
 	return hotels, nil
 }
+
+func (r *HotelRepository) FindBestHotelsForBudget(cityID int, budgetMax float64) (*models.Hotel, error) {
+	hotel := &models.Hotel{}
+
+	query := `SELECT hotel_id, name, city_id, price_per_night, rating, address
+              FROM hotels 
+              WHERE city_id = $1 AND price_per_night <= $2 
+              ORDER BY price_per_night DESC 
+              LIMIT 1`
+
+	err := r.db.QueryRow(query, cityID, budgetMax).Scan(
+		&hotel.HotelID,
+		&hotel.Name,
+		&hotel.CityID,
+		&hotel.PricePerNight,
+		&hotel.Rating,
+		&hotel.Address,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to find hotel: %w", err)
+	}
+	return hotel, nil
+}

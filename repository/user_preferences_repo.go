@@ -54,3 +54,39 @@ func (r *UserPreferencesRepository) Upsert(preferences *models.UserPreferences) 
 	}
 	return preferenceID, nil
 }
+
+func (r *UserPreferencesRepository) GetByUserID(userID int) (*models.UserPreferences, error) {
+	preferences := models.UserPreferences{}
+
+	query := `SELECT 
+                preference_id, user_id, budget_min, budget_max, currency, 
+                travel_style, preferred_categories, created_at, updated_at
+              FROM user_preferences 
+              WHERE user_id = $1`
+
+	var currencySql, travelStyleSql, categoriesSql sql.NullString
+	err := r.db.QueryRow(query, userID).Scan(
+		&preferences.PreferenceID,
+		&preferences.UserID,
+		&preferences.BudgetMin,
+		&preferences.BudgetMax,
+		&currencySql,
+		&travelStyleSql,
+		&categoriesSql,
+		&preferences.CreatedAt,
+		&preferences.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to fetch user preferences for user %d:%w", userID, err)
+	}
+
+	preferences.Currency = currencySql.String
+	preferences.TravelStyle = travelStyleSql.String
+	preferences.PreferredCategories = categoriesSql.String
+
+	return &preferences, nil
+}

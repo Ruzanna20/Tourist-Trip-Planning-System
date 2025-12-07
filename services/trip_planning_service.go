@@ -9,14 +9,17 @@ import (
 )
 
 type TripPlanningService struct {
-	TripRepo      *repository.TripRepository
-	ItineraryRepo *repository.TripItineraryRepository
+	TripRepo                *repository.TripRepository
+	ItineraryRepo           *repository.TripItineraryRepository
+	ItineraryActivitiesRepo *repository.ItineraryActivitiesRepository
 }
 
-func NewTripPlanningService(tripRepo *repository.TripRepository, itineraryRepo *repository.TripItineraryRepository) *TripPlanningService {
+func NewTripPlanningService(tripRepo *repository.TripRepository, itineraryRepo *repository.TripItineraryRepository,
+	ItineraryActivitiesRepo *repository.ItineraryActivitiesRepository) *TripPlanningService {
 	return &TripPlanningService{
-		TripRepo:      tripRepo,
-		ItineraryRepo: itineraryRepo,
+		TripRepo:                tripRepo,
+		ItineraryRepo:           itineraryRepo,
+		ItineraryActivitiesRepo: ItineraryActivitiesRepo,
 	}
 }
 
@@ -31,7 +34,6 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 	if duration <= 0 {
 		return 0, fmt.Errorf("end date must be after start date")
 	}
-
 	newTrip := &models.Trip{
 		UserID:            userID,
 		Title:             req.Name,
@@ -48,7 +50,8 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		return 0, fmt.Errorf("failed to insert trip in db: %w", err)
 	}
 
-	for day := 0; day <= int(duration); day++ {
+	numDays := int(duration) + 1
+	for day := 0; day < numDays; day++ {
 		itineraryDate := startDate.AddDate(0, 0, day)
 		itinerary := &models.TripItinerary{
 			TripID:    tripID,
@@ -60,9 +63,9 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		_, err := s.ItineraryRepo.Insert(itinerary)
 		if err != nil {
 			log.Printf("CRITICAL: Failed to insert itinerary for Trip %d, Day %d: %v", tripID, day+1, err)
-			continue
+			return 0, fmt.Errorf("critical failure during itinerary setup: %w", err)
 		}
-	}
 
+	}
 	return tripID, nil
 }
