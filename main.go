@@ -32,13 +32,11 @@ func main() {
 	hotelRepo := repository.NewHotelRepository(sqlConn)
 	restaurantRepo := repository.NewRestaurantRepository(sqlConn)
 	flightRepo := repository.NewFlightRepository(sqlConn)
-
 	userRepo := repository.NewUserRepository(sqlConn)
 	userPreferencesRepo := repository.NewUserPreferencesRepository(sqlConn)
-	tripRepo := repository.NewTripRepository(sqlConn)
-	tripItineraryRepo := repository.NewTripItineraryRepository(sqlConn)
-	itineraryActivitiesRepo := repository.NewItineraryActivitiesRepository(sqlConn)
-
+	// tripRepo := repository.NewTripRepository(sqlConn)
+	// tripItineraryRepo := repository.NewTripItineraryRepository(sqlConn)
+	// itineraryActivitiesRepo := repository.NewItineraryActivitiesRepository(sqlConn)
 	reviewRepo := repository.NewReviewRepository(sqlConn)
 
 	amadeusService := services.NewAmadeusService()
@@ -50,13 +48,17 @@ func main() {
 	restaurantAPIService := services.NewRestaurantAPIService()
 	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo)
 
-	tripPlanningService := services.NewTripPlanningService(tripRepo, tripItineraryRepo, itineraryActivitiesRepo)
-
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		jwtSecret = "default-development-secret-must-be-changed"
 	}
 	jwtService := services.NewJWTService(jwtSecret, "5")
+
+	authService := services.NewAuthService(userRepo, jwtService)
+	userService := services.NewUserService(userRepo, userPreferencesRepo)
+	resourceService := services.NewResourceService(hotelRepo, cityRepo, attractionRepo, countryRepo, restaurantRepo, flightRepo)
+	reviewService := services.NewReviewService(reviewRepo)
+	// tripPlanningService := services.NewTripPlanningService(tripRepo, tripItineraryRepo, itineraryActivitiesRepo)
 
 	seeder := services.NewDataSeeder(countryRepo,
 		cityRepo,
@@ -109,22 +111,21 @@ func main() {
 		// os.Exit(0)
 	}
 
-	getResourceHandlers := handlers.NewAppHandlers(
-		hotelRepo,
-		cityRepo,
-		attractionRepo,
-		countryRepo,
-		restaurantRepo,
-		flightRepo,
-		userRepo,
-		userPreferencesRepo,
-		tripRepo,
-		reviewRepo,
-		tripPlanningService)
+	authHandlers := handlers.NewAuthHandlers(authService)
+	userHandlers := handlers.NewUserHandlers(userService)
+	resourceHandlers := handlers.NewResourceHandlers(resourceService)
+	reviewHandlers := handlers.NewReviewHandlers(reviewService)
 
-	authHandlers := handlers.NewAuthHandlers(jwtService, cityRepo, userRepo)
+	// tripHandlers := handlers.NewTripHandlers(tripPlanningService)
 
-	appServer := server.NewAppServer(getResourceHandlers, authHandlers, jwtService)
+	appServer := server.NewAppServer(
+		authHandlers,
+		resourceHandlers,
+		reviewHandlers,
+		userHandlers,
+		// tripHandlers,
+		jwtService,
+	)
 	appServer.Start(":8080")
 
 	// log.Println("Jobs started in background...")

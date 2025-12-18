@@ -9,15 +9,25 @@ import (
 )
 
 type AppServer struct {
-	ResourceHandlers *handlers.AppHandlers
 	AuthHandlers     *handlers.AuthHandlers
+	ResourceHandlers *handlers.ResourceHandlers
+	ReviewHandlers   *handlers.ReviewHandlers
+	UserHandlers     *handlers.UserHandlers
 	JWTService       *services.JWTService
 }
 
-func NewAppServer(resourceH *handlers.AppHandlers, authH *handlers.AuthHandlers, jwtS *services.JWTService) *AppServer {
+func NewAppServer(
+	authH *handlers.AuthHandlers,
+	resourceH *handlers.ResourceHandlers,
+	reviewH *handlers.ReviewHandlers,
+	userH *handlers.UserHandlers,
+	jwtS *services.JWTService,
+) *AppServer {
 	return &AppServer{
-		ResourceHandlers: resourceH,
 		AuthHandlers:     authH,
+		ResourceHandlers: resourceH,
+		ReviewHandlers:   reviewH,
+		UserHandlers:     userH,
 		JWTService:       jwtS,
 	}
 }
@@ -25,12 +35,10 @@ func NewAppServer(resourceH *handlers.AppHandlers, authH *handlers.AuthHandlers,
 func (s *AppServer) Start(port string) {
 	log.Printf("Server starting on port %s", port)
 
-	http.HandleFunc("/health", handlers.HealthHandler)
-	http.HandleFunc("/login", s.AuthHandlers.LoginHandler)
-	http.HandleFunc("/refresh", s.AuthHandlers.RefreshHandler)
 	authMiddleware := s.JWTService.AuthMiddleware
 
-	http.HandleFunc("/protected", authMiddleware(s.ResourceHandlers.ProtectedHandler))
+	http.HandleFunc("/login", s.AuthHandlers.LoginHandler)
+	http.HandleFunc("/refresh", s.AuthHandlers.RefreshHandler)
 
 	http.HandleFunc("/api/cities", authMiddleware(s.ResourceHandlers.GetAllCitiesHandler))
 	http.HandleFunc("/api/countries", authMiddleware(s.ResourceHandlers.GetAllCountriesHandler))
@@ -38,15 +46,15 @@ func (s *AppServer) Start(port string) {
 	http.HandleFunc("/api/hotels", authMiddleware(s.ResourceHandlers.GetAllHotelsHandler))
 	http.HandleFunc("/api/restaurants", authMiddleware(s.ResourceHandlers.GetAllRestaurantssHandler))
 	http.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler))
-	http.HandleFunc("/api/trips", authMiddleware(s.ResourceHandlers.GetTripsHandler))
 
-	http.HandleFunc("/api/trips/", authMiddleware(s.ResourceHandlers.GetTripItineraryHandler))
-	http.HandleFunc("/api/itineraries/", authMiddleware(s.ResourceHandlers.GetActivitiesHandler))
+	http.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler))
 
-	http.HandleFunc("/api/users/register", s.ResourceHandlers.RegisterUserHandler)
-	http.HandleFunc("/api/users/preferences", authMiddleware(s.ResourceHandlers.SetPreferencesHandler))
+	// http.HandleFunc("/api/trips/create", authMiddleware(s.TripHandlers.CreateTripHandler))
+	// http.HandleFunc("/api/trips/", authMiddleware(s.TripHandlers.GetTripItineraryHandler))
+	// http.HandleFunc("/api/itineraries/", authMiddleware(s.TripHandlers.GetActivitiesHandler))
 
-	http.HandleFunc("/api/trips/create", authMiddleware(s.ResourceHandlers.CreateTripHandler))
-	http.HandleFunc("/api/reviews", authMiddleware(s.ResourceHandlers.CreateReviewHandler))
+	http.HandleFunc("/api/users/register", s.UserHandlers.RegisterUserHandler)
+	http.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler))
+
 	log.Fatal(http.ListenAndServe(port, nil))
 }
