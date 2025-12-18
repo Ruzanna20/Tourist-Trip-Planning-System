@@ -66,12 +66,11 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 		var t models.Trip
 		var totalPriceSql sql.NullFloat64
 		var currencySql, statusSql sql.NullString
-		var createdAt, updatedAt time.Time
 
 		if err := rows.Scan(
 			&t.TripID, &t.UserID, &t.DestinationCityID, &t.Title,
 			&t.StartDate, &t.EndDate, &totalPriceSql, &currencySql,
-			&statusSql, &createdAt, &updatedAt,
+			&statusSql, &t.CreatedAt, &t.UpdatedAt,
 		); err != nil {
 			log.Printf("Error scanning trip row for user %d: %v", userID, err)
 			continue
@@ -79,8 +78,6 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 		t.TotalPrice = totalPriceSql.Float64
 		t.Currency = currencySql.String
 		t.Status = statusSql.String
-		t.CreatedAt = createdAt
-		t.UpdatedAt = updatedAt
 
 		trips = append(trips, t)
 	}

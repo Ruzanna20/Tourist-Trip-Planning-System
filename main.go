@@ -5,12 +5,10 @@ import (
 	"log"
 	"os"
 
-	//"time"
 	"travel-planning/database"
 	"travel-planning/handlers"
 	"travel-planning/server"
 
-	// jobservice "travel-planning/jobService"
 	"travel-planning/repository"
 	"travel-planning/services"
 )
@@ -75,7 +73,7 @@ func main() {
 
 	if *seedFlag {
 		log.Println("Starting Seeding Job...")
-		//country
+		// country
 		err = seeder.SeedCountries()
 		if err != nil {
 			log.Fatalf("CRITICAL: Data Seeding failed. Error: %v", err)
@@ -97,18 +95,18 @@ func main() {
 		// 	log.Fatalf("CRITICAL: Hotel Data seeding failed. Error: %v", err)
 		// }
 
-		//restaurant
-		if err = seeder.SeedRestaurants(); err != nil {
-			log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
-		}
+		// //restaurant
+		// if err = seeder.SeedRestaurants(); err != nil {
+		// 	log.Fatalf("CRITICAL: Restaurant Data seeding failed. Error: %v", err)
+		// }
 
 		// //flight
 		// if err = seeder.SeedFlights(); err != nil {
 		// 	log.Fatalf("CRITICAL: Flights Seeding failed. Error: %v", err)
 		// }
 
-		log.Println("Seeding job finished. Exiting.")
-		os.Exit(0)
+		// log.Println("Seeding job finished. Exiting.")
+		// os.Exit(0)
 	}
 
 	getResourceHandlers := handlers.NewAppHandlers(
@@ -132,7 +130,7 @@ func main() {
 	// log.Println("Jobs started in background...")
 	// Interval := 24 * time.Hour
 
-	// countryJob := jobservice.NewCountryJob(countryRepo)
+	// countryJob := jobservice.NewCountryJob(seeder)
 	// go func() {
 	// 	log.Printf("Country Job run every %s", Interval)
 
@@ -146,7 +144,7 @@ func main() {
 	// }()
 
 	// cityJob := jobservice.NewCityJob(seeder)
-	// go func ()  {
+	// go func() {
 	// 	log.Printf("City Job run every %s", Interval)
 
 	// 	ticker := time.NewTicker(Interval)
@@ -159,7 +157,7 @@ func main() {
 	// }()
 
 	// attractionJob := jobservice.NewAttractionJob(seeder)
-	// go func ()  {
+	// go func() {
 	// 	log.Printf("Attraction Job run every %s", Interval)
 
 	// 	ticker := time.NewTicker(Interval)
@@ -167,7 +165,7 @@ func main() {
 
 	// 	attractionJob.RunJob()
 	// 	for range ticker.C {
-	// 		attraction.RunJob()
+	// 		attractionJob.RunJob()
 	// 	}
 	// }()
 
@@ -197,7 +195,7 @@ func main() {
 	// 	}
 	// }()
 
-	// flightJob := jobservice.NewFlightJob(cityRepo,amadeusService)
+	// flightJob := jobservice.NewFlightJob(seeder)
 	// go func() {
 	// 	log.Printf("Flight Job run every %s", Interval)
 
@@ -210,5 +208,5 @@ func main() {
 	// 	}
 	// }()
 
-	// select {}
+	select {}
 }
