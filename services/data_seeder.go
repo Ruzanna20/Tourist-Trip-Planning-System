@@ -22,6 +22,7 @@ type DataSeeder struct {
 	hotelAPIService      *HotelAPIService
 	restaurantAPIService *RestaurantAPIService
 	flightAPIService     *FlightAPIService
+	googleAPIService     *GoogleService
 }
 
 func NewDataSeeder(
@@ -37,6 +38,7 @@ func NewDataSeeder(
 	hotelAPIService *HotelAPIService,
 	restaurantAPIService *RestaurantAPIService,
 	flightAPIService *FlightAPIService,
+	googleAPIService *GoogleService,
 ) *DataSeeder {
 	return &DataSeeder{
 		countryRepo:          countryRepo,
@@ -51,6 +53,7 @@ func NewDataSeeder(
 		hotelAPIService:      hotelAPIService,
 		restaurantAPIService: restaurantAPIService,
 		flightAPIService:     flightAPIService,
+		googleAPIService:     googleAPIService,
 	}
 }
 
@@ -139,7 +142,7 @@ func (s *DataSeeder) SeedHotels() error {
 		}
 
 		for _, hotel := range hotels {
-			_, err := s.hotelRepo.Upsert(hotel)
+			_, err = s.hotelRepo.Upsert(hotel)
 			if err != nil {
 				log.Printf("Failed to insert hotel %s: %v", hotel.Name, err)
 				continue

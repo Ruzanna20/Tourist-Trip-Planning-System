@@ -13,6 +13,7 @@ type AppServer struct {
 	ResourceHandlers *handlers.ResourceHandlers
 	ReviewHandlers   *handlers.ReviewHandlers
 	UserHandlers     *handlers.UserHandlers
+	TripHandlers     *handlers.TripHandlers
 	JWTService       *services.JWTService
 }
 
@@ -21,6 +22,7 @@ func NewAppServer(
 	resourceH *handlers.ResourceHandlers,
 	reviewH *handlers.ReviewHandlers,
 	userH *handlers.UserHandlers,
+	tripH *handlers.TripHandlers,
 	jwtS *services.JWTService,
 ) *AppServer {
 	return &AppServer{
@@ -28,6 +30,7 @@ func NewAppServer(
 		ResourceHandlers: resourceH,
 		ReviewHandlers:   reviewH,
 		UserHandlers:     userH,
+		TripHandlers:     tripH,
 		JWTService:       jwtS,
 	}
 }
@@ -49,7 +52,8 @@ func (s *AppServer) Start(port string) {
 
 	http.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler))
 
-	// http.HandleFunc("/api/trips/create", authMiddleware(s.TripHandlers.CreateTripHandler))
+	http.HandleFunc("/api/trips/generate-options", authMiddleware(s.TripHandlers.GenerateTripOptions))
+	http.HandleFunc("/api/trips/create", authMiddleware(s.TripHandlers.CreateTripHandler))
 	// http.HandleFunc("/api/trips/", authMiddleware(s.TripHandlers.GetTripItineraryHandler))
 	// http.HandleFunc("/api/itineraries/", authMiddleware(s.TripHandlers.GetActivitiesHandler))
 

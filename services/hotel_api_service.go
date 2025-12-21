@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,15 +15,15 @@ import (
 
 type HotelAPIService struct {
 	amadeus        *AmadeusService
-	foursquare     *FoursquareService
+	googleService  *GoogleService
 	searchRadiusKm int
 }
 
-func NewHotelAPIService(amadeus *AmadeusService, foursquare *FoursquareService) *HotelAPIService {
+func NewHotelAPIService(amadeus *AmadeusService, googleService *GoogleService) *HotelAPIService {
 	return &HotelAPIService{
 		amadeus:        amadeus,
-		foursquare:     foursquare,
-		searchRadiusKm: 20,
+		googleService:  googleService,
+		searchRadiusKm: 10,
 	}
 }
 
@@ -79,41 +80,43 @@ func (s *HotelAPIService) SearchHotelsByGeo(lat, lon float64, radiusKm int) (*Ho
 func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*models.Hotel, error) {
 	resp, err := s.SearchHotelsByGeo(lat, lon, s.searchRadiusKm)
 	if err != nil {
-		return nil, fmt.Errorf("amadues search failed for city %v:%w", cityID, err)
+		return nil, err
+	}
+
+	if resp == nil || len(resp.Data) == 0 {
+		return nil, nil
 	}
 
 	var hotels []*models.Hotel
 	for _, hotel := range resp.Data {
-		totalPrice := 0.0
-		if hotel.Price.Total != "" {
-			var err error
-			totalPrice, err = strconv.ParseFloat(hotel.Price.Total, 64)
-			if err != nil {
-				log.Printf("Failed to parse price '%s' for hotel '%s'.", hotel.Price.Total, hotel.Name)
-				continue
-			}
+		enrichedData, err := s.googleService.EnrichHotelData(hotel.Name, hotel.Address.CityName)
+		if err != nil || enrichedData == nil || enrichedData.Rating == 0 || enrichedData.Phone == "" {
+			continue
 		}
 
-		enrichedData, err := s.foursquare.EnrichHotelData(hotel.Name, hotel.Latitude, hotel.Longitude)
-		if err != nil || enrichedData == nil {
-			log.Printf("Foursquare encrichment failed for %s:%v", hotel.Name, err)
-			enrichedData = &FoursquareEnrichmentData{}
+		price := 65.0 + rand.Float64()*100.0
+		stars := int(enrichedData.Rating)
+		description := ""
+
+		if enrichedData.Description != "" {
+			description = enrichedData.Description
+		} else {
+			continue
 		}
+
 		newHotel := &models.Hotel{
 			HotelID:       0,
 			CityID:        cityID,
 			Name:          hotel.Name,
 			Address:       strings.Join(hotel.Address.Lines, ", ") + ", " + hotel.Address.CityName,
-			Stars:         1,
+			Stars:         stars,
 			Rating:        enrichedData.Rating,
-			PricePerNight: totalPrice,
-			Currency:      hotel.Price.Currency,
-			Amenities:     enrichedData.Amenities,
+			PricePerNight: price,
+			Currency:      "EUR",
 			Phone:         enrichedData.Phone,
-			Email:         "",
 			Website:       enrichedData.Website,
-			ImageURL:      "",
-			Description:   "",
+			ImageURL:      enrichedData.Photo,
+			Description:   description,
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 		}

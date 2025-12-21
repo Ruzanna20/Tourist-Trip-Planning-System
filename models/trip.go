@@ -17,10 +17,21 @@ type Trip struct {
 }
 
 type TripPlanRequest struct {
-	Name              string  `json:"name"`
-	StartDate         string  `json:"start_date"`
-	EndDate           string  `json:"end_date"`
-	BudgetAmount      float64 `json:"budget_amount"`
-	Currency          string  `json:"currency"`
-	DestinationCityID int     `json:"destination_city_id"`
+	Name         string  `json:"name"`
+	StartDate    string  `json:"start_date"`
+	EndDate      string  `json:"end_date"`
+	BudgetAmount float64 `json:"budget_amount"`
+	Currency     string  `json:"currency"`
+	FromCityID   int     `json:"from_city_id"`
+	ToCityID     int     `json:"to_city_id"`
+}
+
+type TripOption struct {
+	Tier             string  `json:"tier"`
+	Flight           *Flight `json:"flight"`
+	Hotel            *Hotel  `json:"hotel"`
+	LogisticsBudget  float64 `json:"logistics_budget"`
+	ActivitiesBudget float64 `json:"activites_budget"`
+	MoreMoney        float64 `json:"more_money"`
+	TotalPriceOfTrip float64 `json:"total_price_of_money"`
 }

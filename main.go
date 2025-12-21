@@ -34,17 +34,17 @@ func main() {
 	flightRepo := repository.NewFlightRepository(sqlConn)
 	userRepo := repository.NewUserRepository(sqlConn)
 	userPreferencesRepo := repository.NewUserPreferencesRepository(sqlConn)
-	// tripRepo := repository.NewTripRepository(sqlConn)
-	// tripItineraryRepo := repository.NewTripItineraryRepository(sqlConn)
-	// itineraryActivitiesRepo := repository.NewItineraryActivitiesRepository(sqlConn)
+	tripRepo := repository.NewTripRepository(sqlConn)
+	itineraryRepo := repository.NewTripItineraryRepository(sqlConn)
+	itineraryActivitiesRepo := repository.NewItineraryActivitiesRepository(sqlConn)
 	reviewRepo := repository.NewReviewRepository(sqlConn)
 
 	amadeusService := services.NewAmadeusService()
 	countryAPIService := services.NewCountryAPIService()
 	cityAPIService := services.NewCityAPIService()
 	attractionAPIService := services.NewAttractionAPIService()
-	foursquareAPIService := services.NewFoursquareService()
-	hotelAPIService := services.NewHotelAPIService(amadeusService, foursquareAPIService)
+	googleAPIService := services.NewGoogleService()
+	hotelAPIService := services.NewHotelAPIService(amadeusService, googleAPIService)
 	restaurantAPIService := services.NewRestaurantAPIService()
 	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo)
 
@@ -58,9 +58,18 @@ func main() {
 	userService := services.NewUserService(userRepo, userPreferencesRepo)
 	resourceService := services.NewResourceService(hotelRepo, cityRepo, attractionRepo, countryRepo, restaurantRepo, flightRepo)
 	reviewService := services.NewReviewService(reviewRepo)
-	// tripPlanningService := services.NewTripPlanningService(tripRepo, tripItineraryRepo, itineraryActivitiesRepo)
+	tripPlanningService := services.NewTripPlanningService(
+		tripRepo,
+		itineraryRepo,
+		itineraryActivitiesRepo,
+		flightRepo,
+		hotelRepo,
+		attractionRepo,
+		restaurantRepo,
+		userPreferencesRepo)
 
-	seeder := services.NewDataSeeder(countryRepo,
+	seeder := services.NewDataSeeder(
+		countryRepo,
 		cityRepo,
 		attractionRepo,
 		hotelRepo,
@@ -71,7 +80,8 @@ func main() {
 		attractionAPIService,
 		hotelAPIService,
 		restaurantAPIService,
-		flightAPIService)
+		flightAPIService,
+		googleAPIService)
 
 	if *seedFlag {
 		log.Println("Starting Seeding Job...")
@@ -116,14 +126,14 @@ func main() {
 	resourceHandlers := handlers.NewResourceHandlers(resourceService)
 	reviewHandlers := handlers.NewReviewHandlers(reviewService)
 
-	// tripHandlers := handlers.NewTripHandlers(tripPlanningService)
+	tripHandlers := handlers.NewTripHandlers(tripPlanningService)
 
 	appServer := server.NewAppServer(
 		authHandlers,
 		resourceHandlers,
 		reviewHandlers,
 		userHandlers,
-		// tripHandlers,
+		tripHandlers,
 		jwtService,
 	)
 	appServer.Start(":8080")
@@ -209,5 +219,5 @@ func main() {
 	// 	}
 	// }()
 
-	select {}
+	// select {}
 }

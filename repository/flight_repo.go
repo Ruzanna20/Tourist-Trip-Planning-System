@@ -100,3 +100,46 @@ func (r *FlightRepository) GetAllFlights() ([]models.Flight, error) {
 	}
 	return flights, nil
 }
+
+func (r *FlightRepository) GetBestFlightByTier(fromCityID, toCityID int, budgetMax float64, tier string) (*models.Flight, error) {
+	var orderBy string
+
+	switch tier {
+	case "Economy":
+		orderBy = "price ASC"
+	case "Balanced":
+		orderBy = "price ASC"
+	case "Luxury":
+		orderBy = "price DESC"
+	default:
+		orderBy = "price ASC"
+	}
+
+	query := fmt.Sprintf(`SELECT
+	flight_id, from_city_id, to_city_id, airline, duration_minutes, price, currency, website
+	FROM flights
+	WHERE from_city_id = $1 AND to_city_id = $2 AND price <= $3
+	ORDER BY %s
+	LIMIT 1`, orderBy)
+
+	flight := &models.Flight{}
+	err := r.db.QueryRow(
+		query, fromCityID, toCityID, budgetMax).Scan(
+		&flight.FlightID,
+		&flight.FromCityID,
+		&flight.ToCityID,
+		&flight.Airline,
+		&flight.DurationMinutes,
+		&flight.Price,
+		&flight.Currency,
+		&flight.Website,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to find flight: %w", err)
+	}
+	return flight, nil
+}

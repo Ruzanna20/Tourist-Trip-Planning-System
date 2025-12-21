@@ -35,7 +35,7 @@ func (s *UserService) RegisterUser(req models.UserRegistrationRequest) (int, err
 		if strings.Contains(err.Error(), "already exists") {
 			return 0, fmt.Errorf("user with email %s already exists", req.Email)
 		}
-		return 0, fmt.Errorf("failed to create user", err)
+		return 0, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return userID, nil
