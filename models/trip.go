@@ -28,7 +28,8 @@ type TripPlanRequest struct {
 
 type TripOption struct {
 	Tier             string  `json:"tier"`
-	Flight           *Flight `json:"flight"`
+	OutBoundFlight   *Flight `json:"outbound_flight"`
+	InBoundFlight    *Flight `json:"inbound_flight"`
 	Hotel            *Hotel  `json:"hotel"`
 	LogisticsBudget  float64 `json:"logistics_budget"`
 	ActivitiesBudget float64 `json:"activites_budget"`

@@ -11,6 +11,6 @@ type Flight struct {
 	Price           float64   `json:"price" db:"price"`
 	Currency        string    `json:"currency" db:"currency"`
 	Website         string    `json:"website" db:"website"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	CreatedAt       time.Time `json:"-" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }

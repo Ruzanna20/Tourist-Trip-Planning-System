@@ -56,6 +56,7 @@ func (s *TripPlanningService) GenerateTripOptions(userID int, req models.TripPla
 
 	totalBudget := req.BudgetAmount
 	logistics_budget := totalBudget * 0.50
+	oneWayBudget := (logistics_budget * 0.6) / 2
 	activities_budget := totalBudget * 0.30
 	more_money := totalBudget * 0.20
 
@@ -63,16 +64,20 @@ func (s *TripPlanningService) GenerateTripOptions(userID int, req models.TripPla
 	tiers := []string{"Economy", "Balanced", "Luxury"}
 
 	for _, tier := range tiers {
-		flight, err := s.FlightRepo.GetBestFlightByTier(req.FromCityID, req.ToCityID, logistics_budget*0.4, tier)
-		if err != nil {
-			log.Printf("Error finding flight for tier %s: %v", tier, err)
+		outboundFlight, err := s.FlightRepo.GetBestFlightByTier(req.FromCityID, req.ToCityID, oneWayBudget, tier)
+		if err != nil || outboundFlight == nil {
+			log.Printf("Error outbound flight for tier %s: %v", tier, err)
 			continue
 		}
 
-		remainingMoneyForHotel := logistics_budget
-		if flight != nil {
-			remainingMoneyForHotel -= flight.Price
+		inboundFlight, err := s.FlightRepo.GetBestFlightByTier(req.ToCityID, req.FromCityID, oneWayBudget, tier)
+		if err != nil || inboundFlight == nil {
+			log.Printf("Error inbound flight for tier %s: %v", tier, err)
+			continue
 		}
+
+		totalFLightsCost := outboundFlight.Price + inboundFlight.Price
+		remainingMoneyForHotel := logistics_budget - totalFLightsCost
 		limitPerNight := remainingMoneyForHotel / float64(nights)
 
 		hotel, err := s.HotelRepo.GetBestHotelByTier(req.ToCityID, limitPerNight, tier)
@@ -81,25 +86,13 @@ func (s *TripPlanningService) GenerateTripOptions(userID int, req models.TripPla
 			continue
 		}
 
-		if flight == nil {
-			log.Printf("DEBUG: No flight found for tier %s within budget %v", tier, logistics_budget*0.4)
-			continue
-		}
-		if hotel == nil {
-			log.Printf("DEBUG: No hotel found for tier %s within nightly budget %v", tier, limitPerNight)
-			continue
-		}
-
-		// if hotel == nil || flight == nil {
-		// 	continue
-		// }
-
 		hotelCost := hotel.PricePerNight * float64(nights)
-		actualLogisticsCost := flight.Price + hotelCost
+		actualLogisticsCost := totalFLightsCost + hotelCost
 
 		option := models.TripOption{
 			Tier:             tier,
-			Flight:           flight,
+			OutBoundFlight:   outboundFlight,
+			InBoundFlight:    inboundFlight,
 			Hotel:            hotel,
 			LogisticsBudget:  actualLogisticsCost,
 			ActivitiesBudget: activities_budget,

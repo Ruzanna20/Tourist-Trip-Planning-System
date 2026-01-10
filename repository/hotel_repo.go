@@ -134,7 +134,7 @@ func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier
 
 	query := fmt.Sprintf(`SELECT 
 	hotel_id, city_id, name, address, stars, rating, price_per_night, 
-                currency, phone, website, image_url, description
+                currency, phone, website, image_url, description, created_at, updated_at
               FROM hotels 
               WHERE city_id = $1 AND price_per_night <= $2  %s
               ORDER BY %s
@@ -153,6 +153,8 @@ func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier
 		&hotel.Website,
 		&hotel.ImageURL,
 		&hotel.Description,
+		&hotel.CreatedAt,
+		&hotel.UpdatedAt,
 	)
 
 	if err != nil {

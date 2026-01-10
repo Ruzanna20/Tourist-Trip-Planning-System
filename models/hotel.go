@@ -15,6 +15,6 @@ type Hotel struct {
 	Website       string    `json:"website" db:"website"`
 	ImageURL      string    `json:"image_url" db:"image_url"`
 	Description   string    `json:"description" db:"description"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	CreatedAt     time.Time `json:"-" db:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }

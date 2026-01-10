@@ -116,7 +116,7 @@ func (r *FlightRepository) GetBestFlightByTier(fromCityID, toCityID int, budgetM
 	}
 
 	query := fmt.Sprintf(`SELECT
-	flight_id, from_city_id, to_city_id, airline, duration_minutes, price, currency, website
+	flight_id, from_city_id, to_city_id, airline, duration_minutes, price, currency, website, created_at, updated_at
 	FROM flights
 	WHERE from_city_id = $1 AND to_city_id = $2 AND price <= $3
 	ORDER BY %s
@@ -133,6 +133,8 @@ func (r *FlightRepository) GetBestFlightByTier(fromCityID, toCityID int, budgetM
 		&flight.Price,
 		&flight.Currency,
 		&flight.Website,
+		&flight.CreatedAt,
+		&flight.UpdatedAt,
 	)
 
 	if err != nil {
