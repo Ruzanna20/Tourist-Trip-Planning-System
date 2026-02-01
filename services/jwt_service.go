@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,14 +20,9 @@ type JWTService struct {
 }
 
 func NewJWTService(jwtSecret string, expiryMinutesStr string) *JWTService {
-	expiryMinutes := 30
-	if m, err := strconv.Atoi(expiryMinutesStr); err == nil && m > 0 {
-		expiryMinutes = m
-	}
-
 	return &JWTService{
 		secretKey: []byte(jwtSecret),
-		expiry:    time.Duration(expiryMinutes) * time.Minute,
+		expiry:    24 * time.Hour,
 	}
 }
 

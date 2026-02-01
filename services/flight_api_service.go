@@ -159,7 +159,6 @@ func (s *FlightAPIService) FindBestFlightOffer(fromCityIata, toCityIata string) 
 		Airline:         carrier,
 		DurationMinutes: durationMinutes,
 		Price:           totalPrice,
-		Currency:        "USD",
 		Website:         "Amadeus.com",
 	}, nil
 }

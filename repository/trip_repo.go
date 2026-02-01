@@ -88,3 +88,40 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 
 	return trips, nil
 }
+
+func (r *TripRepository) GetTripByID(tripID int) (*models.Trip, error) {
+	query := `SELECT 
+                trip_id, user_id, destination_city_id, title, start_date, end_date, 
+                total_price, status, created_at, updated_at
+              FROM trips 
+              WHERE trip_id = $1`
+
+	var t models.Trip
+	var totalPriceSql sql.NullFloat64
+	var statusSql sql.NullString
+
+	err := r.db.QueryRow(query, tripID).Scan(
+		&t.TripID,
+		&t.UserID,
+		&t.DestinationCityID,
+		&t.Title,
+		&t.StartDate,
+		&t.EndDate,
+		&totalPriceSql,
+		&statusSql,
+		&t.CreatedAt,
+		&t.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("trip with id %d not found", tripID)
+		}
+		return nil, err
+	}
+
+	t.TotalPrice = totalPriceSql.Float64
+	t.Status = statusSql.String
+
+	return &t, nil
+}

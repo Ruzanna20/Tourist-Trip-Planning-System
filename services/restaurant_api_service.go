@@ -3,6 +3,8 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,14 +36,19 @@ type RestaurantAPIResponse struct {
 
 func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float64) ([]*models.Restaurant, error) {
 	query := fmt.Sprintf(`
-		[out:json][timeout:60];
+		[out:json][timeout:90];
 		(
 		  node(around:%d, %.6f, %.6f)["amenity"="restaurant"];
+		  way["amenity"="restaurant"](around:%d, %.6f, %.6f);
+		  node(around:%d, %.6f, %.6f)["amenity"="fast_food"];
+		  way["amenity"="fast_food"](around:%d, %.6f, %.6f);
 		  node(around:%d, %.6f, %.6f)["amenity"="cafe"];
+		  way["amenity"="cafe"](around:%d, %.6f, %.6f);
 		  node(around:%d, %.6f, %.6f)["amenity"="bar"];
+		  way["amenity"="bar"](around:%d, %.6f, %.6f);
 		);
 		out center 50; 
-	`, s.searchRadiusKm*1000, lat, lon, s.searchRadiusKm*1000, lat, lon, s.searchRadiusKm*1000, lat, lon)
+	`, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*5000, lat, lon)
 
 	data := url.Values{}
 	data.Set("data", query)
@@ -67,30 +74,43 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 	}
 
 	var restaurants []*models.Restaurant
+	dif := 5.0 - 1.0
 	for _, element := range apirestaurants.Elements {
 		name := element.Tags["name:en"]
-		if name == "" {
+
+		cuisine := element.Tags["cuisine"]
+
+		website := element.Tags["website"]
+		if website == "" {
+			website = element.Tags["contact:website"]
+		}
+
+		if name == "" || website == "" {
 			continue
 		}
-		cuisine := element.Tags["cuisine"]
-		phone := element.Tags["phone"]
-		website := element.Tags["website"]
+
+		price := element.Tags["cuisine:price"]
+		if price == "" {
+			prices := []string{"$", "$$", "$$$"}
+			price = prices[rand.Intn(len(prices))]
+		}
+
+		rating := 1.0 + rand.Float64()*dif
 
 		newRestaurant := &models.Restaurant{
-			CityID:       cityID,
-			Name:         name,
-			CuisineType:  strings.TrimSpace(cuisine),
-			Address:      fmt.Sprintf("%.6f, %.6f", element.Lat, element.Lon),
-			Rating:       1,
-			PriceRange:   element.Tags["cuisine:price"],
-			Phone:        phone,
-			Website:      website,
-			ImageURL:     "",
-			OpeningHours: "",
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			CityID:     cityID,
+			Name:       name,
+			Cuisine:    strings.TrimSpace(cuisine),
+			Latitude:   element.Lat,
+			Longitude:  element.Lon,
+			Rating:     rating,
+			PriceRange: price,
+			Website:    website,
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
 		}
 		restaurants = append(restaurants, newRestaurant)
 	}
+	log.Printf("City ID %d: Filtered %d restaurants with websites", cityID, len(restaurants))
 	return restaurants, nil
 }

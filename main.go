@@ -96,11 +96,10 @@ func main() {
 		// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
 		// }
 
-		// //attraction
-		// if err = seeder.SeedAttractions(); err != nil {
-		// 	log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
-
-		// }
+		//attraction
+		if err = seeder.SeedAttractions(); err != nil {
+			log.Fatalf("CRITICAL: Data seedng failed.Error: %v", err)
+		}
 
 		// // hotel
 		// if err = seeder.SeedHotels(); err != nil {

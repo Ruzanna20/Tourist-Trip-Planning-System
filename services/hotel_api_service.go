@@ -112,7 +112,6 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 			Stars:         stars,
 			Rating:        enrichedData.Rating,
 			PricePerNight: price,
-			Currency:      "EUR",
 			Phone:         enrichedData.Phone,
 			Website:       enrichedData.Website,
 			ImageURL:      enrichedData.Photo,

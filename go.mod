@@ -9,4 +9,7 @@ require (
 
 require github.com/golang-jwt/jwt/v4 v4.5.2
 
-require golang.org/x/crypto v0.45.0
+require (
+	github.com/gorilla/mux v1.8.1
+	golang.org/x/crypto v0.45.0
+)

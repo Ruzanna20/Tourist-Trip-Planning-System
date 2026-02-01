@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,8 +13,6 @@ import (
 )
 
 const AttractionAPIUrl = "https://overpass-api.de/api/interpreter"
-const AttractionLimit = "20"
-const AttractionFilter = "tourism=attraction|museum|monument|viewpoint|zoo|theme_park|gallery|aquarium|historic=*"
 
 type AttractionAPIService struct {
 	client         *http.Client
@@ -37,12 +36,13 @@ type AttractionAPIResponse struct {
 
 func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float64) ([]models.Attraction, error) {
 	query := fmt.Sprintf(`
-    [out:json][timeout:60];
+    [out:json][timeout:90];
     (
-    	node(around:5000, %.6f, %.6f)[~"tourism|historic|amenity|leisure"~"attraction|museum|monument|castle|theatre|park"];
-    	//way(around:5000, %.6f, %.6f)[~"tourism|historic|amenity|leisure"~"attraction|museum|monument|castle|theatre|park"];
+      node["tourism"~"museum|viewpoint|gallery|attraction|monument|historic"](around:10000, %f, %f);
+      way["tourism"~"museum|viewpoint|gallery|attraction|monument|historic"](around:10000, %f, %f);
+      relation["tourism"~"museum|viewpoint|gallery|attraction|monument|historic"](around:10000, %f, %f);
     );
-    out center %s;`, lat, lon, lat, lon, AttractionLimit)
+    out center 50;`, lat, lon, lat, lon, lat, lon)
 
 	data := url.Values{}
 	data.Set("data", query)
@@ -70,26 +70,47 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 	var attractions []models.Attraction
 	for _, element := range apiattractions.Elements {
 		name := element.Tags["name:en"]
-		if name == "" {
+
+		website := element.Tags["website"]
+		if website == "" {
+			website = element.Tags["contact:website"]
+		}
+
+		rating := 3.5 + rand.Float64()*(5.0-3.5)
+
+		tourismType := element.Tags["tourism"]
+		var entryFee float64
+		switch tourismType {
+		case "museum", "gallery", "zoo":
+			entryFee = 15.0 + rand.Float64()*(45.0-15.0)
+		case "theme_park":
+			entryFee = 50.0 + rand.Float64()*(200.0-50.0)
+		case "viewpoint", "attraction":
+			if rand.Float64() > 0.5 {
+				entryFee = 10.0 + rand.Float64()*(25.0-10.0)
+			} else {
+				entryFee = 0
+			}
+		case "monument", "artwork", "ruins", "picnic_site":
+			entryFee = 0
+
+		default:
+			entryFee = 0
+		}
+
+		if name == "" || website == "" || tourismType == "" {
 			continue
 		}
 
-		category := element.Tags["tourism"]
-		if category == "" {
-			category = element.Tags["historic"]
-		}
-
 		newAttraction := models.Attraction{
-			CityID:      cityID,
-			Name:        name,
-			Category:    category,
-			Latitude:    element.Lat,
-			Longitude:   element.Lon,
-			Rating:      0.0,
-			EntryFee:    0.0,
-			Website:     element.Tags["website"],
-			Description: element.Tags["description"],
-
+			CityID:    cityID,
+			Name:      name,
+			Category:  tourismType,
+			Latitude:  element.Lat,
+			Longitude: element.Lon,
+			Rating:    rating,
+			EntryFee:  entryFee,
+			Website:   website,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}

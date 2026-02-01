@@ -19,9 +19,8 @@ func NewAttractionRepository(db *sql.DB) *AttractionRepository {
 }
 
 func (r *AttractionRepository) Upsert(attraction *models.Attraction) (int, error) {
-	query := `INSERT INTO attractions (city_id, name, category, latitude, longitude, rating, entry_fee, currency, 
-           opening_hours, description, image_url, website, created_at, updated_at) 
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+	query := `INSERT INTO attractions (city_id, name, category, latitude, longitude, rating, entry_fee, website, created_at, updated_at) 
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           ON CONFLICT (name, city_id) DO UPDATE  
           SET 
             category = EXCLUDED.category,
@@ -29,11 +28,7 @@ func (r *AttractionRepository) Upsert(attraction *models.Attraction) (int, error
             longitude = EXCLUDED.longitude,
             rating = EXCLUDED.rating,
             entry_fee = EXCLUDED.entry_fee,
-            description = EXCLUDED.description,
-            currency = $8,
-            opening_hours = $9,
-            image_url = $11,
-            website = $12,
+            website = $8,
             updated_at = NOW() AT TIME ZONE 'Asia/Yerevan' 
           RETURNING attraction_id;`
 
@@ -55,10 +50,6 @@ func (r *AttractionRepository) Upsert(attraction *models.Attraction) (int, error
 		attraction.Longitude,
 		attraction.Rating,
 		attraction.EntryFee,
-		attraction.Currency,
-		attraction.OpeningHours,
-		attraction.Description,
-		attraction.ImageURL,
 		attraction.Website,
 		attraction.CreatedAt,
 		attraction.UpdatedAt,
@@ -74,8 +65,7 @@ func (r *AttractionRepository) Upsert(attraction *models.Attraction) (int, error
 func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) {
 	query := `SELECT 
                 attraction_id, city_id, name, category, latitude, longitude, 
-                rating, entry_fee, currency, opening_hours, description, 
-                image_url, website, created_at, updated_at
+                rating, entry_fee, website, created_at, updated_at
               FROM attractions;`
 
 	rows, err := r.db.Query(query)
@@ -88,11 +78,10 @@ func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) 
 	for rows.Next() {
 		var a models.Attraction
 		var ratingSql, entryFeeSql sql.NullFloat64
-		var currencySql, openingHoursSql, descriptionSql, imageUrlSql, websiteSql sql.NullString
+		var websiteSql sql.NullString
 		if err := rows.Scan(
 			&a.AttractionID, &a.CityID, &a.Name, &a.Category, &a.Latitude, &a.Longitude,
-			&ratingSql, &entryFeeSql, &currencySql, &openingHoursSql, &descriptionSql,
-			&imageUrlSql, &websiteSql, &a.CreatedAt, &a.UpdatedAt,
+			&ratingSql, &entryFeeSql, &websiteSql, &a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
 			log.Printf("Error scanning attraction row: %v", err)
 			continue
@@ -100,10 +89,6 @@ func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) 
 
 		a.Rating = ratingSql.Float64
 		a.EntryFee = entryFeeSql.Float64
-		a.Currency = currencySql.String
-		a.OpeningHours = openingHoursSql.String
-		a.Description = descriptionSql.String
-		a.ImageURL = imageUrlSql.String
 		a.Website = websiteSql.String
 
 		attractions = append(attractions, a)
@@ -114,4 +99,48 @@ func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) 
 	}
 
 	return attractions, nil
+}
+
+func (s *AttractionRepository) GetBestAttractionsByTier(cityID int, budgetLimit float64, tier string) ([]models.Attraction, error) {
+	var orderBy string
+	switch tier {
+	case "Economy":
+		orderBy = "entry_fee ASC, rating DESC"
+	case "Luxury":
+		orderBy = "rating DESC, entry_fee DESC"
+	default:
+		orderBy = "rating DESC, entry_fee ASC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT attraction_id, city_id, name, category, latitude, longitude, rating, entry_fee, website
+		FROM attractions 
+		WHERE city_id = $1 AND entry_fee <= $2
+		ORDER BY %s
+		LIMIT 10`, orderBy)
+
+	rows, err := s.db.Query(query, cityID, budgetLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []models.Attraction
+	for rows.Next() {
+		var a models.Attraction
+		if err := rows.Scan(
+			&a.AttractionID,
+			&a.CityID,
+			&a.Name,
+			&a.Category,
+			&a.Latitude,
+			&a.Longitude,
+			&a.Rating,
+			&a.EntryFee,
+			&a.Website); err != nil {
+			continue
+		}
+		results = append(results, a)
+	}
+	return results, nil
 }

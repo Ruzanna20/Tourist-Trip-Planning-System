@@ -177,7 +177,6 @@ func (s *DataSeeder) SeedRestaurants() error {
 		)
 		if err != nil {
 			log.Printf("Error fetching restaurants for %s: %v", cityLoc.Name, err)
-			time.Sleep(1500 * time.Millisecond)
 			continue
 		}
 

@@ -9,7 +9,6 @@ type Flight struct {
 	Airline         string    `json:"airline" db:"airline"`
 	DurationMinutes int       `json:"duration_minutes" db:"duration_minutes"`
 	Price           float64   `json:"price" db:"price"`
-	Currency        string    `json:"currency" db:"currency"`
 	Website         string    `json:"website" db:"website"`
 	CreatedAt       time.Time `json:"-" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`

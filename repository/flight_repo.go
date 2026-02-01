@@ -21,14 +21,13 @@ func NewFlightRepository(db *sql.DB) *FlightRepository {
 func (r *FlightRepository) Upsert(flight *models.Flight) (int, error) {
 	query := `INSERT INTO flights (
         from_city_id, to_city_id, airline, duration_minutes, price, 
-        currency, website, created_at, updated_at
+    	website, created_at, updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (from_city_id, to_city_id, airline) DO UPDATE 
     SET 
         duration_minutes = EXCLUDED.duration_minutes,
         price = EXCLUDED.price,
-        currency = EXCLUDED.currency,
         website = COALESCE(EXCLUDED.website, flights.website),
         updated_at = NOW() AT TIME ZONE 'Asia/Yerevan' 
     RETURNING flight_id;`
@@ -49,7 +48,6 @@ func (r *FlightRepository) Upsert(flight *models.Flight) (int, error) {
 		flight.Airline,
 		flight.DurationMinutes,
 		flight.Price,
-		flight.Currency,
 		flight.Website,
 		flight.CreatedAt,
 		flight.UpdatedAt,
@@ -62,7 +60,7 @@ func (r *FlightRepository) Upsert(flight *models.Flight) (int, error) {
 }
 
 func (r *FlightRepository) GetAllFlights() ([]models.Flight, error) {
-	query := `SELECT flight_id, from_city_id, to_city_id, airline, duration_minutes, price, currency, website, created_at, updated_at
+	query := `SELECT flight_id, from_city_id, to_city_id, airline, duration_minutes, price, website, created_at, updated_at
               FROM flights;`
 
 	rows, err := r.db.Query(query)
@@ -83,7 +81,6 @@ func (r *FlightRepository) GetAllFlights() ([]models.Flight, error) {
 			&f.Airline,
 			&f.DurationMinutes,
 			&f.Price,
-			&f.Currency,
 			&websiteSql,
 			&f.CreatedAt,
 			&f.UpdatedAt,
@@ -116,7 +113,7 @@ func (r *FlightRepository) GetBestFlightByTier(fromCityID, toCityID int, budgetM
 	}
 
 	query := fmt.Sprintf(`SELECT
-	flight_id, from_city_id, to_city_id, airline, duration_minutes, price, currency, website, created_at, updated_at
+	flight_id, from_city_id, to_city_id, airline, duration_minutes, price, website
 	FROM flights
 	WHERE from_city_id = $1 AND to_city_id = $2 AND price <= $3
 	ORDER BY %s
@@ -131,10 +128,7 @@ func (r *FlightRepository) GetBestFlightByTier(fromCityID, toCityID int, budgetM
 		&flight.Airline,
 		&flight.DurationMinutes,
 		&flight.Price,
-		&flight.Currency,
 		&flight.Website,
-		&flight.CreatedAt,
-		&flight.UpdatedAt,
 	)
 
 	if err != nil {

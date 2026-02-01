@@ -20,19 +20,17 @@ func NewRestaurantRepository(db *sql.DB) *RestaurantRepository {
 
 func (r *RestaurantRepository) Upsert(restaurant *models.Restaurant) (int, error) {
 	query := `INSERT INTO restaurants (
-        city_id, name, cuisine_type, address, rating, price_range, phone, 
-        website, image_url, opening_hours, created_at, updated_at
+        city_id, name, cuisine, latitude, longitude, rating, price_range, 
+        website, created_at, updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    ON CONFLICT (name, city_id) DO UPDATE 
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    ON CONFLICT (city_id,name) DO UPDATE 
     SET 
-        cuisine_type = EXCLUDED.cuisine_type,
-        address = EXCLUDED.address,
+        cuisine = EXCLUDED.cuisine,
+       	latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
         rating = EXCLUDED.rating,
         price_range = EXCLUDED.price_range,
-        opening_hours = EXCLUDED.opening_hours,
-        image_url = EXCLUDED.image_url,
-        phone = COALESCE(EXCLUDED.phone, restaurants.phone),
         website = COALESCE(EXCLUDED.website, restaurants.website),
         updated_at = NOW() AT TIME ZONE 'Asia/Yerevan' 
     RETURNING restaurant_id;`
@@ -50,29 +48,27 @@ func (r *RestaurantRepository) Upsert(restaurant *models.Restaurant) (int, error
 		query,
 		restaurant.CityID,
 		restaurant.Name,
-		restaurant.CuisineType,
-		restaurant.Address,
+		restaurant.Cuisine,
+		restaurant.Latitude,
+		restaurant.Longitude,
 		restaurant.Rating,
 		restaurant.PriceRange,
-		restaurant.Phone,
 		restaurant.Website,
-		restaurant.ImageURL,
-		restaurant.OpeningHours,
 		restaurant.CreatedAt,
 		restaurant.UpdatedAt,
 	).Scan(&restaurantID)
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to upsert hotel %s: %w", restaurant.Name, err)
+		return 0, fmt.Errorf("failed to upsert restaurant %s: %w", restaurant.Name, err)
 	}
 	return restaurantID, nil
 }
 
 func (r *RestaurantRepository) GetAllRestaurants() ([]models.Restaurant, error) {
 	query := `SELECT 
-                restaurant_id, city_id, name, cuisine_type, address, rating, price_range, 
-                phone, website, image_url, opening_hours, created_at, updated_at
-              FROM restaurants;`
+                restaurant_id, city_id, name, cuisine, latitude, longitude, rating, price_range, 
+            	website, created_at, updated_at
+            FROM restaurants;`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -83,27 +79,25 @@ func (r *RestaurantRepository) GetAllRestaurants() ([]models.Restaurant, error) 
 	var restaurants []models.Restaurant
 	for rows.Next() {
 		var r models.Restaurant
-		var ratingSql sql.NullFloat64
-		var cuisineSql, addressSql, priceRangeSql, phoneSql, websiteSql, imageUrlSql, openingHoursSql sql.NullString
+		var ratingSql, latitudeSql, longitudeSql sql.NullFloat64
+		var cuisineSql, priceRangeSql, websiteSql sql.NullString
 
 		if err := rows.Scan(
 			&r.RestaurantID, &r.CityID, &r.Name,
-			&cuisineSql, &addressSql, &ratingSql, &priceRangeSql,
-			&phoneSql, &websiteSql, &imageUrlSql, &openingHoursSql,
+			&cuisineSql, &latitudeSql, &longitudeSql, &ratingSql, &priceRangeSql,
+			&websiteSql,
 			&r.CreatedAt, &r.UpdatedAt,
 		); err != nil {
 			log.Printf("Error scanning restaurant row: %v", err)
 			continue
 		}
 
-		r.CuisineType = cuisineSql.String
-		r.Address = addressSql.String
+		r.Cuisine = cuisineSql.String
+		r.Latitude = latitudeSql.Float64
+		r.Longitude = longitudeSql.Float64
 		r.Rating = ratingSql.Float64
 		r.PriceRange = priceRangeSql.String
-		r.Phone = phoneSql.String
 		r.Website = websiteSql.String
-		r.ImageURL = imageUrlSql.String
-		r.OpeningHours = openingHoursSql.String
 		restaurants = append(restaurants, r)
 	}
 
@@ -112,4 +106,48 @@ func (r *RestaurantRepository) GetAllRestaurants() ([]models.Restaurant, error) 
 	}
 
 	return restaurants, nil
+}
+
+func (r *RestaurantRepository) GetBestRestaurantByTier(cityID int, tier string) ([]models.Restaurant, error) {
+	var orderBy string
+	switch tier {
+	case "Economy":
+		orderBy = "rating ASC"
+	case "Luxury":
+		orderBy = "rating DESC"
+	default:
+		orderBy = "rating DESC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT restaurant_id, city_id, name, cuisine, latitude, longitude, rating, priceRange, website
+		FROM restaurants 
+		WHERE city_id = $1
+		ORDER BY %s
+		LIMIT 10`, orderBy)
+
+	rows, err := r.db.Query(query, cityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []models.Restaurant
+	for rows.Next() {
+		var r models.Restaurant
+		if err := rows.Scan(
+			&r.RestaurantID,
+			&r.CityID,
+			&r.Name,
+			&r.Cuisine,
+			&r.Latitude,
+			&r.Longitude,
+			&r.Rating,
+			&r.PriceRange,
+			&r.Website); err != nil {
+			continue
+		}
+		results = append(results, r)
+	}
+	return results, nil
 }

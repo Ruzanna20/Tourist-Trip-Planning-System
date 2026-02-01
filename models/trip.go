@@ -20,10 +20,9 @@ type TripPlanRequest struct {
 	Name         string  `json:"name"`
 	StartDate    string  `json:"start_date"`
 	EndDate      string  `json:"end_date"`
-	BudgetAmount float64 `json:"budget_amount"`
+	ToCityID     int     `json:"destination_city_id"`
+	BudgetAmount float64 `json:"total_price"`
 	Currency     string  `json:"currency"`
-	FromCityID   int     `json:"from_city_id"`
-	ToCityID     int     `json:"to_city_id"`
 }
 
 type TripOption struct {
