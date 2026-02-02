@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -41,9 +42,14 @@ type GoogleAPIResponse struct {
 }
 
 func (s *GoogleService) EnrichHotelData(name string, cityName string) (*GoogleEnrichmentData, error) {
+	l := slog.With("hotel_name", name, "city", cityName)
+
 	if s.apiKey == "" {
-		return nil, fmt.Errorf("google api key is not .env")
+		l.Error("Google API key missing in environment variables")
+		return nil, fmt.Errorf("google api key is not in .env")
 	}
+
+	l.Debug("Searching place ID via Google Text Search")
 
 	query := url.QueryEscape(name + " in " + cityName)
 	endpoint := fmt.Sprintf(
@@ -53,24 +59,34 @@ func (s *GoogleService) EnrichHotelData(name string, cityName string) (*GoogleEn
 
 	resp, err := s.client.Get(endpoint)
 	if err != nil {
+		l.Error("Google Text Search HTTP request failed", "error", err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		l.Warn("Google API returned non-OK status", "status", resp.StatusCode)
 		return nil, fmt.Errorf("api request failed with status %d", resp.StatusCode)
 	}
 
 	var apiResponse GoogleAPIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+		l.Error("Failed to decode Google Text Search response", "error", err)
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
-	if len(apiResponse.Results) == 0 || apiResponse.Status != "OK" {
+	if apiResponse.Status != "OK" {
+		if apiResponse.Status == "ZERO_RESULTS" {
+			l.Debug("Google found no results for this hotel")
+		} else {
+			l.Warn("Google API returned status error", "api_status", apiResponse.Status)
+		}
 		return nil, nil
 	}
 
 	place := apiResponse.Results[0]
+	l.Debug("Place ID found, fetching details", "place_id", place.PlaceID)
+
 	detailsURL := fmt.Sprintf(
 		"https://maps.googleapis.com/maps/api/place/details/json?place_id=%s&fields=international_phone_number,website,editorial_summary&key=%s",
 		place.PlaceID, s.apiKey,
@@ -78,6 +94,7 @@ func (s *GoogleService) EnrichHotelData(name string, cityName string) (*GoogleEn
 
 	respDetails, err := s.client.Get(detailsURL)
 	if err != nil {
+		l.Error("Google Place Details request failed", "place_id", place.PlaceID, "error", err)
 		return nil, fmt.Errorf("failed to get details: %w", err)
 	}
 	defer respDetails.Body.Close()
@@ -90,10 +107,17 @@ func (s *GoogleService) EnrichHotelData(name string, cityName string) (*GoogleEn
 				Overview string `json:"overview"`
 			} `json:"editorial_summary"`
 		} `json:"result"`
+		Status string `json:"status"`
 	}
 
 	if err := json.NewDecoder(respDetails.Body).Decode(&detRes); err != nil {
+		l.Error("Failed to decode Google Details response", "place_id", place.PlaceID, "error", err)
 		return nil, fmt.Errorf("failed to decode details: %w", err)
+	}
+
+	if detRes.Status != "OK" {
+		l.Warn("Google Place Details status error", "api_status", detRes.Status)
+		return nil, nil
 	}
 
 	photoURL := ""
@@ -102,6 +126,8 @@ func (s *GoogleService) EnrichHotelData(name string, cityName string) (*GoogleEn
 			place.Photos[0].Reference, s.apiKey)
 	}
 
+	l.Info("Successfully enriched hotel data via Google", "has_photo", photoURL != "")
+
 	return &GoogleEnrichmentData{
 		Rating:      place.Rating,
 		Phone:       detRes.Result.Phone,
@@ -109,5 +135,4 @@ func (s *GoogleService) EnrichHotelData(name string, cityName string) (*GoogleEn
 		Photo:       photoURL,
 		Description: detRes.Result.EditorialSummary.Overview,
 	}, nil
-
 }

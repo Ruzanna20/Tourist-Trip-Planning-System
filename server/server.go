@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"travel-planning/handlers"
@@ -38,7 +38,7 @@ func NewAppServer(
 }
 
 func (s *AppServer) Start(port string) {
-	log.Printf("Server starting on port %s", port)
+	slog.Info("Starting Application Server", "port", port)
 
 	r := mux.NewRouter()
 	authMiddleware := s.JWTService.AuthMiddleware
@@ -71,5 +71,9 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/register", s.UserHandlers.RegisterUserHandler).Methods("POST")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(port, r))
+	slog.Info("Routes registered successfully")
+
+	if err := http.ListenAndServe(port, r); err != nil {
+		slog.Error("Server failed to start", "error", err)
+	}
 }

@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 
@@ -24,7 +24,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	user := models.User{}
 
 	query := `SELECT user_id, first_name, last_name, email, password_hash, created_at
-	          FROM users WHERE email = $1`
+              FROM users WHERE email = $1`
 
 	err := r.db.QueryRow(query, email).Scan(
 		&user.UserID,
@@ -37,8 +37,10 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.Debug("User not found by email", "email", email)
 			return nil, nil
 		}
+		slog.Error("Database error fetching user by email", "email", email, "error", err)
 		return nil, fmt.Errorf("error fetching user by email: %w", err)
 	}
 	return &user, nil
@@ -51,11 +53,13 @@ func (r *UserRepository) Insert(user *models.User, password string) (int, error)
 	}
 
 	if existingUser != nil {
+		slog.Warn("Attempt to register with existing email", "email", user.Email)
 		return existingUser.UserID, fmt.Errorf("user with email %s already exists", user.Email)
 	}
 
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
+		slog.Error("Failed to hash password", "email", user.Email, "error", err)
 		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
 
@@ -76,9 +80,10 @@ func (r *UserRepository) Insert(user *models.User, password string) (int, error)
 	).Scan(&userID)
 
 	if err != nil {
-		log.Printf("SQL Error inserting user: %v", err)
+		slog.Error("SQL Error inserting user", "email", user.Email, "error", err)
 		return 0, fmt.Errorf("failed to insert user: %w", err)
 	}
 
+	slog.Info("New user registered successfully", "user_id", userID, "email", user.Email)
 	return userID, nil
 }

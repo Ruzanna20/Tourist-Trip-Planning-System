@@ -3,7 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -16,7 +16,7 @@ type DB struct {
 
 func init() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found.")
+		slog.Debug("No .env file found, using system environment variables")
 	}
 }
 
@@ -32,23 +32,30 @@ func getConnectionStr() string {
 
 func NewDB() (*DB, error) {
 	connStr := getConnectionStr()
+	host := os.Getenv("DB_HOST")
+	dbname := os.Getenv("DB_NAME")
+
+	slog.Info("Attempting to connect to database", "host", host, "database", dbname)
 
 	conn, err := sql.Open("postgres", connStr)
 	if err != nil {
+		slog.Error("Failed to open database connection", "error", err)
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
 	if err := conn.Ping(); err != nil {
+		slog.Error("Database ping failed", "host", host, "error", err)
 		return nil, fmt.Errorf("failed to ping db: %w", err)
 	}
 
-	log.Println("Successfuly connected to db")
+	slog.Info("Successfully connected to database", "host", host)
 
 	return &DB{conn: conn}, nil
 }
 
 func (db *DB) Close() error {
 	if db.conn != nil {
+		slog.Info("Closing database connection")
 		return db.conn.Close()
 	}
 	return nil

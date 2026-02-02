@@ -2,14 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"travel-planning/services"
 )
 
 type CustomClaims = services.CustomClaims
-
-const AdminUser = "admin"
 
 type Credentials struct {
 	Username string `json:"username"`
@@ -37,26 +35,32 @@ func NewAuthHandlers(authService *services.AuthService) *AuthHandlers {
 
 func (h *AuthHandlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		slog.Warn("Method not allowed", "method", r.Method, "path", r.URL.Path)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var creds Credentials
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		slog.Warn("Failed to decode login credentials", "error", err)
 		http.Error(w, "Invalid request body format", http.StatusBadRequest)
 		return
 	}
 
 	if creds.Username == "" || creds.Password == "" {
+		slog.Warn("Login attempt with missing credentials", "username", creds.Username)
 		http.Error(w, "Username and password required", http.StatusBadRequest)
 		return
 	}
 
 	token, refreshToken, err := h.AuthService.Login(creds.Username, creds.Password)
 	if err != nil {
+		slog.Warn("Unauthorized login attempt", "username", creds.Username)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
+
+	slog.Info("User logged in successfully", "username", creds.Username)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Response{
@@ -67,22 +71,26 @@ func (h *AuthHandlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandlers) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		slog.Warn("Method not allowed for refresh", "method", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Warn("Failed to decode refresh request", "error", err)
 		http.Error(w, "Invalid request body format", http.StatusBadRequest)
 		return
 	}
 
 	newAccessToken, err := h.AuthService.RefreshToken(req.RefreshToken)
 	if err != nil {
-		log.Printf("Error generating new access token: %v", err)
+		slog.Error("Error generating new access token", "error", err)
 		http.Error(w, "Error generating new access token", http.StatusInternalServerError)
 		return
 	}
+
+	slog.Info("Access token refreshed successfully")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Response{

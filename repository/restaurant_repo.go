@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -27,7 +27,7 @@ func (r *RestaurantRepository) Upsert(restaurant *models.Restaurant) (int, error
     ON CONFLICT (city_id,name) DO UPDATE 
     SET 
         cuisine = EXCLUDED.cuisine,
-       	latitude = EXCLUDED.latitude,
+        latitude = EXCLUDED.latitude,
         longitude = EXCLUDED.longitude,
         rating = EXCLUDED.rating,
         price_range = EXCLUDED.price_range,
@@ -59,19 +59,27 @@ func (r *RestaurantRepository) Upsert(restaurant *models.Restaurant) (int, error
 	).Scan(&restaurantID)
 
 	if err != nil {
+		slog.Error("Failed to upsert restaurant",
+			"name", restaurant.Name,
+			"city_id", restaurant.CityID,
+			"error", err,
+		)
 		return 0, fmt.Errorf("failed to upsert restaurant %s: %w", restaurant.Name, err)
 	}
+
+	slog.Debug("Restaurant upserted successfully", "id", restaurantID, "name", restaurant.Name)
 	return restaurantID, nil
 }
 
 func (r *RestaurantRepository) GetAllRestaurants() ([]models.Restaurant, error) {
 	query := `SELECT 
                 restaurant_id, city_id, name, cuisine, latitude, longitude, rating, price_range, 
-            	website, created_at, updated_at
+                website, created_at, updated_at
             FROM restaurants;`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
+		slog.Error("Failed to fetch all restaurants", "error", err)
 		return nil, fmt.Errorf("failed to fetch all restaurants: %w", err)
 	}
 	defer rows.Close()
@@ -88,7 +96,7 @@ func (r *RestaurantRepository) GetAllRestaurants() ([]models.Restaurant, error) 
 			&websiteSql,
 			&r.CreatedAt, &r.UpdatedAt,
 		); err != nil {
-			log.Printf("Error scanning restaurant row: %v", err)
+			slog.Warn("Error scanning restaurant row", "error", err)
 			continue
 		}
 
@@ -101,53 +109,57 @@ func (r *RestaurantRepository) GetAllRestaurants() ([]models.Restaurant, error) 
 		restaurants = append(restaurants, r)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
-	}
-
 	return restaurants, nil
 }
 
 func (r *RestaurantRepository) GetBestRestaurantByTier(cityID int, tier string) ([]models.Restaurant, error) {
-	var orderBy string
+	slog.Info("Fetching best restaurants by tier", "city_id", cityID, "tier", tier)
+
+	var priceFilter string
 	switch tier {
 	case "Economy":
-		orderBy = "rating ASC"
+		priceFilter = "AND price_range = '$'"
+	case "Balanced":
+		priceFilter = "AND price_range IN ('$', '$$')"
 	case "Luxury":
-		orderBy = "rating DESC"
+		priceFilter = "AND price_range IN ('$$', '$$$')"
 	default:
-		orderBy = "rating DESC"
+		priceFilter = ""
 	}
 
 	query := fmt.Sprintf(`
-		SELECT restaurant_id, city_id, name, cuisine, latitude, longitude, rating, priceRange, website
-		FROM restaurants 
-		WHERE city_id = $1
-		ORDER BY %s
-		LIMIT 10`, orderBy)
+        SELECT restaurant_id, city_id, name, cuisine, latitude, longitude, rating, price_range, website
+        FROM restaurants 
+        WHERE city_id = $1 %s
+        ORDER BY rating DESC
+        LIMIT 15`, priceFilter)
 
 	rows, err := r.db.Query(query, cityID)
 	if err != nil {
+		slog.Error("Database error in GetBestRestaurantByTier", "city_id", cityID, "error", err)
 		return nil, err
 	}
 	defer rows.Close()
 
 	var results []models.Restaurant
 	for rows.Next() {
-		var r models.Restaurant
+		var res models.Restaurant
 		if err := rows.Scan(
-			&r.RestaurantID,
-			&r.CityID,
-			&r.Name,
-			&r.Cuisine,
-			&r.Latitude,
-			&r.Longitude,
-			&r.Rating,
-			&r.PriceRange,
-			&r.Website); err != nil {
+			&res.RestaurantID,
+			&res.CityID,
+			&res.Name,
+			&res.Cuisine,
+			&res.Latitude,
+			&res.Longitude,
+			&res.Rating,
+			&res.PriceRange,
+			&res.Website); err != nil {
+			slog.Warn("Skipping restaurant row due to scan error", "error", err)
 			continue
 		}
-		results = append(results, r)
+		results = append(results, res)
 	}
+
+	slog.Debug("Restaurants fetched successfully", "count", len(results), "city_id", cityID)
 	return results, nil
 }

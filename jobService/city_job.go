@@ -1,7 +1,8 @@
 package jobservice
 
 import (
-	"log"
+	"log/slog"
+	"time"
 	"travel-planning/services"
 )
 
@@ -16,11 +17,15 @@ func NewCityJob(seeder *services.DataSeeder) *CityJob {
 }
 
 func (job *CityJob) RunJob() {
-	log.Println("Starting City Job")
+	start := time.Now()
+
+	l := slog.With("job", "CityJob")
+
+	l.Info("Job started")
 
 	if err := job.seeder.SeedCities(); err != nil {
-		log.Printf("CRITICAL ERROR during City Job:%v", err)
+		l.Error("Job failed with critical error", "error", err, "duration", time.Since(start))
 	} else {
-		log.Println("City Job completed successfully")
+		l.Info("Job completed successfully", "duration", time.Since(start))
 	}
 }

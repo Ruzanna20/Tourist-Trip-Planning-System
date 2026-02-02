@@ -1,64 +1,30 @@
 package jobservice
 
 import (
-	"log"
+	"log/slog"
 	"time"
-	"travel-planning/repository"
 	"travel-planning/services"
 )
 
 type RestaurantJob struct {
-	cityRepo             *repository.CityRepository
-	restaurantRepo       *repository.RestaurantRepository
-	restaurantAPIService *services.RestaurantAPIService
+	seeder *services.DataSeeder
 }
 
-func NewRestaurantJob(cityRepo *repository.CityRepository, restaurantRepo *repository.RestaurantRepository, restaurantAPIService *services.RestaurantAPIService) *RestaurantJob {
+func NewRestaurantJob(seeder *services.DataSeeder) *RestaurantJob {
 	return &RestaurantJob{
-		cityRepo:             cityRepo,
-		restaurantRepo:       restaurantRepo,
-		restaurantAPIService: restaurantAPIService,
+		seeder: seeder,
 	}
 }
 
 func (job *RestaurantJob) RunJob() {
-	log.Println("Starting Hotel Job")
+	start := time.Now()
+	l := slog.With("job", "RestaurantJob")
 
-	cityLocations, err := job.cityRepo.GetAllCityLocations()
-	if err != nil {
-		log.Printf("CRITICAL: Failed to get city locations for job: %v\n", err)
-		return
+	l.Info("Job started")
+
+	if err := job.seeder.SeedRestaurants(); err != nil {
+		l.Error("Job failed with critical error", "error", err, "duration", time.Since(start))
+	} else {
+		l.Info("Job completed successfully", "duration", time.Since(start))
 	}
-
-	if len(cityLocations) == 0 {
-		log.Println("no cities found in db")
-		return
-	}
-
-	for _, cityLoc := range cityLocations {
-		if cityLoc.Latitude == 0 || cityLoc.Longitude == 0 {
-			continue
-		}
-
-		restaurants, err := job.restaurantAPIService.FetchRestaurantsByCity(
-			cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude,
-		)
-		if err != nil {
-			log.Printf("ERROR fetching hotels for %s: %v", cityLoc.Name, err)
-			time.Sleep(4 * time.Second)
-			continue
-		}
-
-		for _, restaurant := range restaurants {
-			_, err := job.restaurantRepo.Upsert(restaurant)
-			if err != nil {
-				log.Printf("CRITICAL DB ERROR inserting restaurant '%s': %v", restaurant.Name, err)
-				continue
-			}
-		}
-
-		time.Sleep(4 * time.Second)
-	}
-
-	log.Println("Restaurant Job Completed.")
 }

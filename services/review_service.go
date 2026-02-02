@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"travel-planning/models"
 	"travel-planning/repository"
@@ -19,15 +20,20 @@ func NewReviewService(reviewRepo *repository.ReviewRepository) *ReviewService {
 
 func (s *ReviewService) CreateReview(userID int, req models.CreateReviewRequest) (int, error) {
 	entityType := strings.ToLower(req.EntityType)
+	l := slog.With("user_id", userID, "entity_type", entityType, "entity_id", req.EntityID)
+
 	if req.Rating < 1 || req.Rating > 5 {
+		l.Warn("Review creation failed: invalid rating", "rating", req.Rating)
 		return 0, fmt.Errorf("rating must be >= 1 and  <= 5")
 	}
 
 	if entityType != "hotel" && entityType != "attraction" && entityType != "restaurant" {
+		l.Warn("Review creation failed: invalid entity type")
 		return 0, fmt.Errorf("invalid entity type")
 	}
 
 	if req.EntityID <= 0 {
+		l.Warn("Review creation failed: invalid entity ID")
 		return 0, fmt.Errorf("invalid entity ID")
 	}
 
@@ -39,10 +45,14 @@ func (s *ReviewService) CreateReview(userID int, req models.CreateReviewRequest)
 		EntityID:   req.EntityID,
 	}
 
+	l.Debug("Attempting to insert review into database")
+
 	reviewID, err := s.ReviewRepo.Insert(newReview)
 	if err != nil {
+		l.Error("Database error: failed to save review", "error", err)
 		return 0, fmt.Errorf("failed to save review: %w", err)
 	}
 
+	l.Info("Review created successfully", "review_id", reviewID)
 	return reviewID, nil
 }
