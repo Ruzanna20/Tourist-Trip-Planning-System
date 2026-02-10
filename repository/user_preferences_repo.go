@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -25,7 +25,7 @@ func (r *UserPreferencesRepository) Upsert(preferences *models.UserPreferences) 
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (user_id) DO UPDATE 
     SET 
-		home_city_id = EXCLUDED.home_city_id,
+        home_city_id = EXCLUDED.home_city_id,
         budget_min = EXCLUDED.budget_min,
         budget_max = EXCLUDED.budget_max,
         travel_style = EXCLUDED.travel_style,
@@ -49,9 +49,17 @@ func (r *UserPreferencesRepository) Upsert(preferences *models.UserPreferences) 
 	).Scan(&preferenceID)
 
 	if err != nil {
-		log.Printf("DB Error upserting preferences for user %d: %v", preferences.UserID, err)
+		slog.Error("Failed to upsert user preferences",
+			"user_id", preferences.UserID,
+			"error", err,
+		)
 		return 0, fmt.Errorf("failed to upsert user preferences: %w", err)
 	}
+
+	slog.Info("User preferences updated successfully",
+		"user_id", preferences.UserID,
+		"preference_id", preferenceID,
+	)
 	return preferenceID, nil
 }
 
@@ -79,8 +87,13 @@ func (r *UserPreferencesRepository) GetByUserID(userID int) (*models.UserPrefere
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.Debug("No preferences found for user", "user_id", userID)
 			return nil, nil
 		}
+		slog.Error("Database error fetching user preferences",
+			"user_id", userID,
+			"error", err,
+		)
 		return nil, fmt.Errorf("failed to fetch user preferences for user %d:%w", userID, err)
 	}
 

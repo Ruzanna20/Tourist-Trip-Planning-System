@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"travel-planning/models"
@@ -22,38 +22,54 @@ func NewTripHandlers(tripPlanningService *services.TripPlanningService) *TripHan
 	}
 }
 
+// CreateTripHandler godoc
+// @Summary Creating a new itinerary
+// @Security BearerAuth
+// @Tags Trips
+// @Accept json
+// @Produce json
+// @Param trip body models.TripPlanRequest true "Travel information"
+// @Success 201 {object} map[string]interface{} "trip_id"
+// @Router /api/trips/create [post]
 func (h *TripHandlers) CreateTripHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	l := slog.With("user_id", userID, "path", r.URL.Path)
+
 	if r.Method != http.MethodPost {
+		l.Warn("Method not allowed", "method", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	userIDStr := r.Header.Get("X-User-ID")
-	userID, err := strconv.Atoi(userIDStr)
 	if err != nil || userID <= 0 {
-		log.Printf("CRITICAL: JWT UserID is invalid: %v", err)
-		http.Error(w, "Authentication error: Invalid User ID", http.StatusUnauthorized)
+		l.Error("Unauthorized access: invalid or missing X-User-ID")
+		http.Error(w, "Authentication error", http.StatusUnauthorized)
 		return
 	}
 
 	var req models.TripPlanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		l.Warn("Invalid request body format", "error", err)
 		http.Error(w, "Invalid request body format", http.StatusBadRequest)
 		return
 	}
 
 	if req.Name == "" || req.StartDate == "" || req.EndDate == "" {
+		l.Warn("Missing required trip fields", "name", req.Name)
 		http.Error(w, "Trip name, start date, and end date are required.", http.StatusBadRequest)
 		return
 	}
 
+	l.Info("Starting trip planning", "trip_name", req.Name)
 	tripID, err := h.TripPlanningService.PlanTrip(userID, req)
 	if err != nil {
-		log.Printf("Trip Planning Failed: %v", err)
+		l.Error("Trip Planning Failed", "error", err)
 		http.Error(w, fmt.Sprintf("Failed to process trip plan: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	l.Info("Trip plan initiated successfully", "trip_id", tripID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -62,47 +78,75 @@ func (h *TripHandlers) CreateTripHandler(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// GenerateTripOptions godoc
+// @Summary Generation of travel options (with budget types)
+// @Security BearerAuth
+// @Tags Trips
+// @Param id path int true "Trip ID"
+// @Produce json
+// @Success 200 {array} models.TripOption
+// @Router /api/trips/{id}/generate-options [post]
 func (h *TripHandlers) GenerateTripOptions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	vars := mux.Vars(r)
 	tripID, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, "Invalid Trip ID", http.StatusBadRequest)
 		return
 	}
+	l := slog.With("trip_id", tripID)
+
+	if r.Method != http.MethodPost {
+		l.Warn("Method not allowed", "method", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	l.Info("Generating trip options (Budget tiers)")
 
 	trip, err := h.TripPlanningService.TripRepo.GetTripByID(tripID)
 	if err != nil {
+		l.Warn("Trip not found", "error", err)
 		http.Error(w, "Trip not found", http.StatusNotFound)
 		return
 	}
 
 	options, err := h.TripPlanningService.GenerateOptions(trip)
 	if err != nil {
-		log.Printf("ERROR in GenerateOptions: %v", err)
+		l.Error("Failed to generate trip options", "error", err)
 		http.Error(w, "Failed to generate plan", http.StatusInternalServerError)
 		return
 	}
+
+	l.Info("Trip options generated successfully")
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(options); err != nil {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 	}
 }
 
+// GetTripItineraryHandler godoc
+// @Summary Get trip itinerary
+// @Description Fetch all days of a specific trip's itinerary
+// @Security BearerAuth
+// @Tags Trips
+// @Param id path int true "Trip ID"
+// @Produce json
+// @Success 200 {array} models.TripItinerary
+// @Router /api/trips/{id}/itinerary [get]
 func (h *TripHandlers) GetTripItineraryHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	l := slog.With("user_id", userID, "path", r.URL.Path)
+
 	if r.Method != http.MethodGet {
+		l.Warn("Method not allowed", "method", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	userIDStr := r.Header.Get("X-User-ID")
-	userID, err := strconv.Atoi(userIDStr)
 	if err != nil || userID <= 0 {
-		http.Error(w, "Authentication error: Invalid User ID", http.StatusUnauthorized)
+		l.Error("Unauthorized access: invalid or missing X-User-ID")
+		http.Error(w, "Authentication error", http.StatusUnauthorized)
 		return
 	}
 
@@ -110,36 +154,47 @@ func (h *TripHandlers) GetTripItineraryHandler(w http.ResponseWriter, r *http.Re
 	tripIDStr := vars["id"]
 	tripID, err := strconv.Atoi(tripIDStr)
 	if err != nil || tripID <= 0 {
+		l.Warn("Invalid Trip ID format", "trip_id_raw", vars["id"])
 		http.Error(w, "Invalid Trip ID format", http.StatusBadRequest)
 		return
 	}
 
+	l.Debug("Fetching itinerary days from DB", "trip_id", tripID)
 	itineraryDays, err := h.TripPlanningService.ItineraryRepo.GetItineraryDaysByTripID(tripID)
 	if err != nil {
-		log.Printf("DB Error fetching itinerary for trip %d: %v", tripID, err)
+		l.Error("DB Error fetching itinerary days", "trip_id", tripID, "error", err)
 		http.Error(w, "Error fetching itinerary days.", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if len(itineraryDays) == 0 {
+		l.Info("No itinerary found for trip", "trip_id", tripID)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": "No itinerary found for this trip"})
 		return
 	}
+	l.Debug("Itinerary days fetched successfully", "trip_id", tripID, "count", len(itineraryDays))
 	json.NewEncoder(w).Encode(itineraryDays)
 }
 
+// GetActivitiesHandler godoc
+// @Summary Get itinerary activities
+// @Description Fetch all activities for a specific itinerary day
+// @Security BearerAuth
+// @Tags Trips
+// @Param id path int true "Itinerary ID"
+// @Produce json
+// @Success 200 {array} models.ItineraryActivity
+// @Router /api/itineraries/{id}/activities [get]
 func (h *TripHandlers) GetActivitiesHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	userIDStr := r.Header.Get("X-User-ID")
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil || userID <= 0 {
-		http.Error(w, "Authentication error: Invalid User ID", http.StatusUnauthorized)
+	userID, _ := strconv.Atoi(userIDStr)
+	l := slog.With("user_id", userID, "path", r.URL.Path)
+
+	if r.Method != http.MethodGet {
+		l.Warn("Method not allowed", "method", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -147,42 +202,73 @@ func (h *TripHandlers) GetActivitiesHandler(w http.ResponseWriter, r *http.Reque
 	itineraryIDStr := vars["id"]
 	itineraryID, err := strconv.Atoi(itineraryIDStr)
 	if err != nil || itineraryID <= 0 {
+		l.Warn("Invalid Itinerary ID format", "itinerary_id_raw", vars["id"])
 		http.Error(w, "Invalid Itinerary ID format", http.StatusBadRequest)
 		return
 	}
 
+	l.Debug("Fetching activities for itinerary day", "itinerary_id", itineraryID)
 	activities, err := h.TripPlanningService.ItineraryActivitiesRepo.GetActivitiesByItineraryID(itineraryID)
 	if err != nil {
-		log.Printf("DB Error fetching activities for itinerary %d: %v", itineraryID, err)
+		l.Error("DB Error fetching activities", "itinerary_id", itineraryID, "error", err)
 		http.Error(w, "Error fetching itinerary days.", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if len(activities) == 0 {
+		l.Info("No activities found for itinerary day", "itinerary_id", itineraryID)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": "No activities found for this day"})
 		return
 	}
 
+	l.Debug("Activities fetched successfully", "itinerary_id", itineraryID, "count", len(activities))
 	json.NewEncoder(w).Encode(activities)
 }
 
+// SelectTripOption godoc
+// @Summary Finalize trip selection
+// @Description Confirm the chosen travel tier and logistics IDs to finalize the plan
+// @Security BearerAuth
+// @Tags Trips
+// @Param id path int true "Trip ID"
+// @Param selection body object true "Selected tier and entity IDs"
+// @Success 200 {string} string "Trip finalized successfully"
+// @Router /api/trips/{id}/select-option [post]
 func (h *TripHandlers) SelectTripOption(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, _ := strconv.Atoi(userIDStr)
 	vars := mux.Vars(r)
 	tripID, _ := strconv.Atoi(vars["id"])
+	l := slog.With("user_id", userID, "trip_id", tripID)
 
 	var req struct {
-		Tier string `json:"tier"`
+		Tier             string `json:"tier"`
+		HotelID          int    `json:"hotel_id"`
+		OutboundFlightID int    `json:"outbound_flight_id"`
+		InboundFlightID  int    `json:"inbound_flight_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		l.Warn("Invalid selection body", "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	err := h.TripPlanningService.FinalizeTripPlan(tripID, req.Tier)
+	l.Info("Finalizing trip selection", "tier", req.Tier)
+	err := h.TripPlanningService.FinalizeTripPlan(
+		tripID,
+		req.Tier,
+		req.HotelID,
+		req.OutboundFlightID,
+		req.InboundFlightID)
 	if err != nil {
+		l.Error("Failed to finalize trip plan", "tier", req.Tier, "error", err)
 		http.Error(w, "Failed to finalize trip: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	l.Info("Trip selection finalized successfully", "tier", req.Tier)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 }

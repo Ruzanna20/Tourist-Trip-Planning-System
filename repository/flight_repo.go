@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -54,8 +54,16 @@ func (r *FlightRepository) Upsert(flight *models.Flight) (int, error) {
 	).Scan(&flightID)
 
 	if err != nil {
+		slog.Error("Failed to upsert flight",
+			"from_city", flight.FromCityID,
+			"to_city", flight.ToCityID,
+			"airline", flight.Airline,
+			"error", err,
+		)
 		return 0, fmt.Errorf("ERROR upserting flight between %d and %d: %w", flight.FromCityID, flight.ToCityID, err)
 	}
+
+	slog.Debug("Flight upserted successfully", "flight_id", flightID, "airline", flight.Airline)
 	return flightID, nil
 }
 
@@ -65,7 +73,8 @@ func (r *FlightRepository) GetAllFlights() ([]models.Flight, error) {
 
 	rows, err := r.db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch all hotels: %w", err)
+		slog.Error("Failed to fetch all flights", "error", err)
+		return nil, fmt.Errorf("failed to fetch all flights: %w", err)
 	}
 	defer rows.Close()
 
@@ -85,7 +94,7 @@ func (r *FlightRepository) GetAllFlights() ([]models.Flight, error) {
 			&f.CreatedAt,
 			&f.UpdatedAt,
 		); err != nil {
-			log.Printf("Error scanning flight row: %v", err)
+			slog.Warn("Error scanning flight row", "error", err)
 			continue
 		}
 		f.Website = websiteSql.String
@@ -99,6 +108,8 @@ func (r *FlightRepository) GetAllFlights() ([]models.Flight, error) {
 }
 
 func (r *FlightRepository) GetBestFlightByTier(fromCityID, toCityID int, budgetMax float64, tier string) (*models.Flight, error) {
+	slog.Info("Searching for best flight", "from", fromCityID, "to", toCityID, "tier", tier)
+
 	var orderBy string
 
 	switch tier {
@@ -133,9 +144,12 @@ func (r *FlightRepository) GetBestFlightByTier(fromCityID, toCityID int, budgetM
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.Debug("No flights found for route", "from", fromCityID, "to", toCityID)
 			return nil, nil
 		}
+		slog.Error("Database error searching flights", "error", err)
 		return nil, fmt.Errorf("failed to find flight: %w", err)
 	}
+
 	return flight, nil
 }

@@ -1,0 +1,635 @@
+basePath: /
+definitions:
+  handlers.Credentials:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  handlers.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  handlers.Response:
+    properties:
+      refresh_token:
+        type: string
+      token:
+        type: string
+    type: object
+  models.Attraction:
+    properties:
+      attraction_id:
+        type: integer
+      category:
+        type: string
+      city_id:
+        type: integer
+      created_at:
+        type: string
+      entry_fee:
+        type: number
+      latitude:
+        type: number
+      longitude:
+        type: number
+      name:
+        type: string
+      rating:
+        type: number
+      updated_at:
+        type: string
+      website:
+        type: string
+    type: object
+  models.City:
+    properties:
+      city_id:
+        type: integer
+      country_id:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      iata_code:
+        type: string
+      latitude:
+        type: number
+      longitude:
+        type: number
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.Country:
+    properties:
+      code:
+        type: string
+      country_id:
+        type: integer
+      created_at:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.CreateReviewRequest:
+    properties:
+      comment:
+        type: string
+      entity_id:
+        type: integer
+      entity_type:
+        type: string
+      rating:
+        type: integer
+    type: object
+  models.Flight:
+    properties:
+      airline:
+        type: string
+      duration_minutes:
+        type: integer
+      flight_id:
+        type: integer
+      from_city_id:
+        type: integer
+      price:
+        type: number
+      to_city_id:
+        type: integer
+      updated_at:
+        type: string
+      website:
+        type: string
+    type: object
+  models.Hotel:
+    properties:
+      address:
+        type: string
+      city_id:
+        type: integer
+      description:
+        type: string
+      hotel_id:
+        type: integer
+      image_url:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      price_per_night:
+        type: number
+      rating:
+        type: number
+      stars:
+        type: integer
+      updated_at:
+        type: string
+      website:
+        type: string
+    type: object
+  models.ItineraryActivity:
+    properties:
+      activity_id:
+        type: integer
+      activity_type:
+        type: string
+      attraction_id:
+        $ref: '#/definitions/sql.NullInt64'
+      created_at:
+        type: string
+      end_time:
+        type: string
+      flight_id:
+        $ref: '#/definitions/sql.NullInt64'
+      hotel_id:
+        $ref: '#/definitions/sql.NullInt64'
+      itinerary_id:
+        type: integer
+      notes:
+        type: string
+      order_number:
+        type: integer
+      restaurant_id:
+        $ref: '#/definitions/sql.NullInt64'
+      start_time:
+        type: string
+    type: object
+  models.Restaurant:
+    properties:
+      city_id:
+        type: integer
+      created_at:
+        type: string
+      cuisine:
+        type: string
+      latitude:
+        type: number
+      longitude:
+        type: number
+      name:
+        type: string
+      price_range:
+        type: string
+      rating:
+        type: number
+      restaurant_id:
+        type: integer
+      updated_at:
+        type: string
+      website:
+        type: string
+    type: object
+  models.TripItinerary:
+    properties:
+      Itinerary_id:
+        type: integer
+      created_at:
+        type: string
+      date:
+        type: string
+      day_number:
+        type: integer
+      notes:
+        type: string
+      trip_id:
+        type: integer
+    type: object
+  models.TripOption:
+    properties:
+      activites_budget:
+        type: number
+      hotel:
+        $ref: '#/definitions/models.Hotel'
+      inbound_flight:
+        $ref: '#/definitions/models.Flight'
+      logistics_budget:
+        type: number
+      more_money:
+        type: number
+      outbound_flight:
+        $ref: '#/definitions/models.Flight'
+      tier:
+        type: string
+      total_price_of_money:
+        type: number
+    type: object
+  models.TripPlanRequest:
+    properties:
+      currency:
+        type: string
+      destination_city_id:
+        type: integer
+      end_date:
+        type: string
+      name:
+        type: string
+      start_date:
+        type: string
+      total_price:
+        type: number
+    type: object
+  models.UserPreferences:
+    properties:
+      budget_max:
+        type: number
+      budget_min:
+        type: number
+      created_at:
+        type: string
+      home_city_id:
+        type: integer
+      preference_id:
+        type: integer
+      preferred_categories:
+        type: string
+      travel_style:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.UserRegistrationRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        type: string
+    type: object
+  sql.NullInt64:
+    properties:
+      int64:
+        format: int64
+        type: integer
+      valid:
+        description: Valid is true if Int64 is not NULL
+        type: boolean
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+  description: This is the API server for the Tourist Trip Planning System.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Tourist Trip Planning System API
+  version: "1.0"
+paths:
+  /api/attractions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Attraction'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all attractions
+      tags:
+      - Resources
+  /api/cities:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.City'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all cities
+      tags:
+      - Resources
+  /api/countries:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Country'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all countries
+      tags:
+      - Resources
+  /api/flights:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Flight'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all flights
+      tags:
+      - Resources
+  /api/hotels:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Hotel'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all hotels
+      tags:
+      - Resources
+  /api/itineraries/{id}/activities:
+    get:
+      description: Fetch all activities for a specific itinerary day
+      parameters:
+      - description: Itinerary ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ItineraryActivity'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get itinerary activities
+      tags:
+      - Trips
+  /api/restaurants:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Restaurant'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all restaurants
+      tags:
+      - Resources
+  /api/reviews:
+    post:
+      consumes:
+      - application/json
+      description: Submit a review for a hotel, attraction, or restaurant
+      parameters:
+      - description: Review details
+        in: body
+        name: review
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: review_id
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new review
+      tags:
+      - Reviews
+  /api/trips/{id}/generate-options:
+    post:
+      parameters:
+      - description: Trip ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TripOption'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Generation of travel options (with budget types)
+      tags:
+      - Trips
+  /api/trips/{id}/itinerary:
+    get:
+      description: Fetch all days of a specific trip's itinerary
+      parameters:
+      - description: Trip ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TripItinerary'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get trip itinerary
+      tags:
+      - Trips
+  /api/trips/{id}/select-option:
+    post:
+      description: Confirm the chosen travel tier and logistics IDs to finalize the
+        plan
+      parameters:
+      - description: Trip ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Selected tier and entity IDs
+        in: body
+        name: selection
+        required: true
+        schema:
+          type: object
+      responses:
+        "200":
+          description: Trip finalized successfully
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Finalize trip selection
+      tags:
+      - Trips
+  /api/trips/create:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Travel information
+        in: body
+        name: trip
+        required: true
+        schema:
+          $ref: '#/definitions/models.TripPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: trip_id
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Creating a new itinerary
+      tags:
+      - Trips
+  /api/users/preferences:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Preferences
+        in: body
+        name: preferences
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserPreferences'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: preference_id
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Saving user preferences
+      tags:
+      - Users
+  /api/users/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Registration information
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRegistrationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: user_id
+          schema:
+            additionalProperties: true
+            type: object
+      summary: New user registration
+      tags:
+      - Users
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Enter your email address and password to receive a JWT token
+      parameters:
+      - description: Login information
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.Credentials'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+        "401":
+          description: Invalid information
+          schema:
+            type: string
+      summary: User login
+      tags:
+      - Auth
+  /refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get a new access token using a valid refresh token
+      parameters:
+      - description: Refresh token request
+        in: body
+        name: refresh_token
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.Response'
+        "401":
+          description: Invalid refresh token
+          schema:
+            type: string
+      summary: Refresh access token
+      tags:
+      - Auth
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -42,8 +43,15 @@ func (r *CountryRepository) Upsert(country *models.Country) (int, error) {
 	).Scan(&countryID)
 
 	if err != nil {
+		slog.Error("Failed to upsert country",
+			"country_code", country.Code,
+			"country_name", country.Name,
+			"error", err,
+		)
 		return 0, fmt.Errorf("failed to insert country with code %s: %w", country.Code, err)
 	}
+
+	slog.Debug("Country upserted successfully", "code", country.Code, "id", countryID)
 	return countryID, nil
 }
 
@@ -63,8 +71,10 @@ func (r *CountryRepository) GetByCode(code string) (*models.Country, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.Debug("Country not found", "code", code)
 			return nil, nil
 		}
+		slog.Error("Database error in GetByCode", "code", code, "error", err)
 		return nil, fmt.Errorf("failed to get country by code %s: %w", code, err)
 	}
 
@@ -74,6 +84,7 @@ func (r *CountryRepository) GetByCode(code string) (*models.Country, error) {
 func (r *CountryRepository) GetAll() ([]models.Country, error) {
 	rows, err := r.db.Query("SELECT country_id,name,code,created_at,updated_at FROM countries")
 	if err != nil {
+		slog.Error("Failed to fetch all countries", "error", err)
 		return nil, fmt.Errorf("failed to execute select all countries: %w", err)
 	}
 
@@ -83,13 +94,17 @@ func (r *CountryRepository) GetAll() ([]models.Country, error) {
 	for rows.Next() {
 		var c models.Country
 		if err := rows.Scan(&c.CountryID, &c.Name, &c.Code, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			slog.Warn("Error scanning country row", "error", err)
 			return nil, fmt.Errorf("error scanning country row: %w", err)
 		}
 		countries = append(countries, c)
 	}
+
 	if err := rows.Err(); err != nil {
+		slog.Error("Rows iteration error in GetAll countries", "error", err)
 		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 
+	slog.Debug("All countries fetched", "count", len(countries))
 	return countries, nil
 }

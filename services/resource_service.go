@@ -1,7 +1,7 @@
 package services
 
 import (
-	"log"
+	"log/slog"
 	"travel-planning/models"
 	"travel-planning/repository"
 )
@@ -36,62 +36,59 @@ func NewResourceService(
 func (s *ResourceService) GetAllCountries() ([]models.Country, error) {
 	countries, err := s.CountryRepo.GetAll()
 	if err != nil {
-		log.Printf("DB error fetching country data:%v", err)
+		slog.Error("Database error: failed to fetch countries", "error", err)
 		return nil, err
 	}
+	slog.Debug("Fetched countries from database", "count", len(countries))
 	return countries, nil
 }
 
 func (s *ResourceService) GetAllCities() ([]models.City, error) {
 	cities, err := s.CityRepo.GetAllCities()
 	if err != nil {
-		log.Printf("DB error fetching city data:%v", err)
+		slog.Error("Database error: failed to fetch cities", "error", err)
 		return nil, err
 	}
-
+	slog.Debug("Fetched cities from database", "count", len(cities))
 	return cities, nil
-
 }
 
 func (s *ResourceService) GetAllAttractions() ([]models.Attraction, error) {
 	attractions, err := s.AttractionRepo.GetAllAttractions()
 	if err != nil {
-		log.Printf("DB error fetching attraction data:%v", err)
+		slog.Error("Database error: failed to fetch attractions", "error", err)
 		return nil, err
 	}
-
+	slog.Debug("Fetched attractions from database", "count", len(attractions))
 	return attractions, nil
-
 }
 
 func (s *ResourceService) GetAllHotels() ([]models.Hotel, error) {
 	hotels, err := s.HotelRepo.GetAllHotels()
 	if err != nil {
-		log.Printf("DB error fetching hotel data:%v", err)
+		slog.Error("Database error: failed to fetch hotels", "error", err)
 		return nil, err
 	}
-
+	slog.Debug("Fetched hotels from database", "count", len(hotels))
 	return hotels, nil
-
 }
 
 func (s *ResourceService) GetAllRestaurants() ([]models.Restaurant, error) {
 	restaurants, err := s.RestaurantRepo.GetAllRestaurants()
 	if err != nil {
-		log.Printf("DB error fetching restaurant data:%v", err)
+		slog.Error("Database error: failed to fetch restaurants", "error", err)
 		return nil, err
 	}
-
+	slog.Debug("Fetched restaurants from database", "count", len(restaurants))
 	return restaurants, nil
-
 }
 
 func (s *ResourceService) GetAllFlights() ([]models.Flight, error) {
 	flights, err := s.FlightRepo.GetAllFlights()
 	if err != nil {
-		log.Printf("DB error fetching flight data:%v", err)
+		slog.Error("Database error: failed to fetch flights", "error", err)
 		return nil, err
 	}
-
+	slog.Debug("Fetched flights from database", "count", len(flights))
 	return flights, nil
 }

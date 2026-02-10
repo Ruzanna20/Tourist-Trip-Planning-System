@@ -3,7 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -35,6 +35,9 @@ type RestaurantAPIResponse struct {
 }
 
 func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float64) ([]*models.Restaurant, error) {
+	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
+	l.Info("Fetching restaurants from Overpass API")
+
 	query := fmt.Sprintf(`
 		[out:json][timeout:90];
 		(
@@ -52,6 +55,7 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 
 	data := url.Values{}
 	data.Set("data", query)
+	startTime := time.Now()
 
 	resp, err := s.client.Post(
 		restaurantAPIUrl,
@@ -60,16 +64,21 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 	)
 
 	if err != nil {
+		l.Error("Overpass Restaurant API request failed", "error", err)
 		return nil, fmt.Errorf("failed to make overpass API request: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
+	l.Debug("Overpass response received", "duration", time.Since(startTime))
+
+	if resp.StatusCode != http.StatusOK {
+		l.Warn("Overpass Restaurant API returned non-OK status", "status", resp.StatusCode)
+		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
+	}
+
 	var apirestaurants RestaurantAPIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apirestaurants); err != nil {
+		l.Error("Failed to decode Restaurant JSON", "error", err)
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
@@ -77,6 +86,9 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 	dif := 5.0 - 1.0
 	for _, element := range apirestaurants.Elements {
 		name := element.Tags["name:en"]
+		if name == "" {
+			name = element.Tags["name"]
+		}
 
 		cuisine := element.Tags["cuisine"]
 
@@ -111,6 +123,6 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 		}
 		restaurants = append(restaurants, newRestaurant)
 	}
-	log.Printf("City ID %d: Filtered %d restaurants with websites", cityID, len(restaurants))
+	l.Info("Successfully processed restaurants", "total_found", len(apirestaurants.Elements), "added_after_filter", len(restaurants))
 	return restaurants, nil
 }

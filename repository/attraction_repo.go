@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -56,9 +56,10 @@ func (r *AttractionRepository) Upsert(attraction *models.Attraction) (int, error
 	).Scan(&attractionID)
 
 	if err != nil {
-		log.Printf("ERROR inserting attraction %s (CityID %d): %v", attraction.Name, attraction.CityID, err)
+		slog.Error("Failed to upsert attraction", "name", attraction.Name, "city_id", attraction.CityID, "error", err)
 		return 0, fmt.Errorf("failed to insert attraction %s: %w", attraction.Name, err)
 	}
+	slog.Debug("Attraction upserted successfully", "name", attraction.Name, "id", attractionID)
 	return attractionID, nil
 }
 
@@ -70,7 +71,8 @@ func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) 
 
 	rows, err := r.db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch all attractionS:%w", err)
+		slog.Error("Failed to fetch all attractions", "error", err)
+		return nil, fmt.Errorf("failed to fetch all attractions: %w", err)
 	}
 	defer rows.Close()
 
@@ -83,7 +85,7 @@ func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) 
 			&a.AttractionID, &a.CityID, &a.Name, &a.Category, &a.Latitude, &a.Longitude,
 			&ratingSql, &entryFeeSql, &websiteSql, &a.CreatedAt, &a.UpdatedAt,
 		); err != nil {
-			log.Printf("Error scanning attraction row: %v", err)
+			slog.Warn("Error scanning attraction row", "error", err)
 			continue
 		}
 
@@ -102,6 +104,8 @@ func (r *AttractionRepository) GetAllAttractions() ([]models.Attraction, error) 
 }
 
 func (s *AttractionRepository) GetBestAttractionsByTier(cityID int, budgetLimit float64, tier string) ([]models.Attraction, error) {
+	slog.Info("Fetching best attractions", "city_id", cityID, "budget_limit", budgetLimit, "tier", tier)
+
 	var orderBy string
 	switch tier {
 	case "Economy":
@@ -121,6 +125,7 @@ func (s *AttractionRepository) GetBestAttractionsByTier(cityID int, budgetLimit 
 
 	rows, err := s.db.Query(query, cityID, budgetLimit)
 	if err != nil {
+		slog.Error("Database query failed in GetBestAttractionsByTier", "error", err, "city_id", cityID)
 		return nil, err
 	}
 	defer rows.Close()
@@ -138,9 +143,11 @@ func (s *AttractionRepository) GetBestAttractionsByTier(cityID int, budgetLimit 
 			&a.Rating,
 			&a.EntryFee,
 			&a.Website); err != nil {
+			slog.Warn("Skipping attraction row due to scan error", "error", err)
 			continue
 		}
 		results = append(results, a)
 	}
+	slog.Debug("Attractions fetched successfully", "count", len(results))
 	return results, nil
 }

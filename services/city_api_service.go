@@ -3,7 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"net/url"
@@ -36,6 +36,9 @@ type CityAPIResponse struct {
 }
 
 func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City, error) {
+	l := slog.With("country_code", countryCode)
+	l.Info("Fetching cities for country from Overpass API")
+
 	//OverPass QL
 	query := fmt.Sprintf(`
 		[out:json][timeout:30];
@@ -50,6 +53,8 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City
 	data := url.Values{}
 	data.Set("data", query)
 
+	startTime := time.Now()
+
 	resp, err := s.client.Post(
 		cityAPIURL,
 		"application/x-www-form-urlencoded",
@@ -57,16 +62,21 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City
 	)
 
 	if err != nil {
+		l.Error("Overpass City API request failed", "error", err)
 		return nil, fmt.Errorf("failed to make overpass API request for %s: %w", countryCode, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
+	l.Debug("Overpass City response received", "duration", time.Since(startTime))
+
+	if resp.StatusCode != http.StatusOK {
+		l.Warn("Overpass City API returned non-OK status", "status", resp.StatusCode)
+		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
+	}
+
 	var apicities CityAPIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apicities); err != nil {
+		l.Error("Failed to decode City JSON response", "error", err)
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
@@ -74,11 +84,12 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City
 	for _, element := range apicities.Elements {
 		name := element.Tags["name:en"]
 		if name == "" {
-			continue
+			name = element.Tags["name"]
 		}
 		populationStr := element.Tags["population"]
 
 		if name == "" || element.Lat == 0 || element.Lon == 0 || populationStr == "" {
+			l.Debug("Skipping incomplete city data", "city_name", name)
 			continue
 		}
 
@@ -92,6 +103,6 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City
 		}
 		cities = append(cities, newCity)
 	}
-	log.Printf("Successfully fetched %d cities for %s from OSM.", len(cities), countryCode)
+	l.Info("Successfully fetched cities", "count", len(cities))
 	return cities, nil
 }

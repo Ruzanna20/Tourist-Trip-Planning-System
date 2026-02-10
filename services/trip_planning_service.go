@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"math"
+	"strings"
 	"time"
 	"travel-planning/models"
 	"travel-planning/repository"
@@ -115,11 +117,28 @@ func (s *TripPlanningService) GenerateOptions(trip *models.Trip) ([]models.TripO
 }
 
 func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (int, error) {
+	l := slog.With("user_id", userID, "trip_name", req.Name)
+	l.Info("Starting trip planning")
+
 	startDate, err1 := time.Parse("2006-01-02", req.StartDate)
 	endDate, err2 := time.Parse("2006-01-02", req.EndDate)
 	if err1 != nil || err2 != nil {
+		l.Error("Invalid date format", "start", req.StartDate, "end", req.EndDate)
 		return 0, fmt.Errorf("invalid date format,use Year-month-day")
 	}
+
+	duration := endDate.Sub(startDate).Hours() / 24
+	if duration <= 0 {
+		l.Warn("Invalid trip duration", "duration_days", duration)
+		return 0, fmt.Errorf("end date must be after start date")
+	}
+
+	tx, err := s.TripRepo.GetConn().Begin()
+	if err != nil {
+		l.Error("Failed to start transaction", "error", err)
+		return 0, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
 
 	newTrip := &models.Trip{
 		UserID:            userID,
@@ -132,17 +151,16 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		Status:            "Planned",
 	}
 
-	tripID, err := s.TripRepo.Insert(newTrip)
+	tripID, err := s.TripRepo.Insert(tx, newTrip)
 	if err != nil {
+		l.Error("DB error: failed to insert trip", "error", err)
 		return 0, fmt.Errorf("failed to insert trip in db: %w", err)
 	}
 
-	duration := endDate.Sub(startDate).Hours() / 24
-	if duration <= 0 {
-		return 0, fmt.Errorf("end date must be after start date")
-	}
+	l.Info("Trip header created", "trip_id", tripID)
+
 	numDays := int(duration) + 1
-	for day := 0; day <= numDays; day++ {
+	for day := 0; day < numDays; day++ {
 		itineraryDate := startDate.AddDate(0, 0, day)
 		itinerary := &models.TripItinerary{
 			TripID:    tripID,
@@ -151,86 +169,110 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 			Notes:     fmt.Sprintf("Plan for day %d.", day+1),
 		}
 
-		_, err := s.ItineraryRepo.Insert(itinerary)
+		_, err := s.ItineraryRepo.Insert(tx, itinerary)
 		if err != nil {
-			log.Printf("CRITICAL: Failed to insert itinerary for Trip %d, Day %d: %v", tripID, day+1, err)
+			l.Error("DB error: failed to insert itinerary", "day", day+1, "error", err)
 			return 0, fmt.Errorf("critical failure during itinerary setup: %w", err)
 		}
 
 	}
+
+	if err := tx.Commit(); err != nil {
+		l.Error("Failed to commit transaction", "error", err)
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	l.Info("Trip planning transaction committed successfully", "trip_id", tripID)
 	return tripID, nil
 }
 
-func (s *TripPlanningService) PopulateItineraryDetails(tripID int, cityID int, tier string, totalActivitiesBudget float64, days int, startDate time.Time) error {
+func (s *TripPlanningService) PopulateItineraryDetails(tx *sql.Tx,
+	tripID int,
+	cityID int,
+	tier string,
+	totalActivitiesBudget float64,
+	days int,
+	startDate time.Time,
+	hotelID int,
+	outboundFlightID int,
+	inboundFlightID int) error {
+
+	l := slog.With("trip_id", tripID, "tier", tier)
+	l.Debug("Populating itinerary details")
+
+	itineraries, err := s.ItineraryRepo.GetItineraryDaysByTripID(tripID)
+	if err != nil || len(itineraries) == 0 {
+		return fmt.Errorf("no itinerary days found for trip %d", tripID)
+	}
+
+	totalDays := len(itineraries)
 	dailyBudget := totalActivitiesBudget / float64(days)
 	dailyAttractionLimit := dailyBudget * 0.70
 
 	allAttractions, err := s.AttractionRepo.GetBestAttractionsByTier(cityID, dailyAttractionLimit, tier)
 	if err != nil || len(allAttractions) == 0 {
+		l.Warn("No attractions found for criteria", "city_id", cityID, "limit", dailyAttractionLimit)
 		return fmt.Errorf("no attractions found for city %d", cityID)
 	}
 
 	allRestaurants, err := s.RestaurantRepo.GetBestRestaurantByTier(cityID, tier)
 	if err != nil || len(allRestaurants) == 0 {
-		return fmt.Errorf("no restaurants found")
+		slog.Warn("No restaurants found for this city and tier",
+			"trip_id", tripID, "city_id", cityID, "tier", tier)
 	}
 
 	usedAttractions := make(map[int]bool)
-	itineraries, _ := s.ItineraryRepo.GetItineraryDaysByTripID(tripID)
 
-	for day := 1; day <= days; day++ {
-		if len(itineraries) < day {
-			continue
-		}
-		currentDayItineraryID := itineraries[day-1].ItineraryID
+	for i, dayPlan := range itineraries {
+		dayNum := i + 1
+		currentDayID := int64(dayPlan.ItineraryID)
 
-		var firstAttraction *models.Attraction
-		for i := range allAttractions {
-			if !usedAttractions[allAttractions[i].AttractionID] && allAttractions[i].EntryFee <= dailyAttractionLimit*0.5 {
-				firstAttraction = &allAttractions[i]
-				usedAttractions[firstAttraction.AttractionID] = true
-				break
-			}
-		}
+		switch {
+		case dayNum == 1:
+			s.saveActivity(tx, currentDayID, "flight", outboundFlightID, 0, allAttractions, dayPlan.Date)
+			s.saveActivity(tx, currentDayID, "hotel", hotelID, 1, allAttractions, dayPlan.Date)
+			s.saveActivity(tx, currentDayID, "event", 0, 2, nil, dayPlan.Date)
 
-		if firstAttraction == nil {
-			continue
-		}
+		case dayNum == totalDays:
+			s.saveActivity(tx, currentDayID, "event", 0, 1, nil, dayPlan.Date)
+			s.saveActivity(tx, currentDayID, "flight", inboundFlightID, 2, allAttractions, dayPlan.Date)
 
-		var bestRestaurant *models.Restaurant
-		minDistanceRest := 999999.9
-		for i := range allRestaurants {
-			d := calculateDistance(firstAttraction.Latitude, firstAttraction.Longitude, allRestaurants[i].Latitude, allRestaurants[i].Longitude)
-			if d < minDistanceRest {
-				minDistanceRest = d
-				bestRestaurant = &allRestaurants[i]
-			}
-		}
+		default:
+			var lastLat, lastLon float64
+			var firstAttraction *models.Attraction
 
-		var secondAttraction *models.Attraction
-		minDistanceAttr := 999999.9
-		remainingAttrBudget := dailyAttractionLimit - firstAttraction.EntryFee
-
-		for i := range allAttractions {
-			if usedAttractions[allAttractions[i].AttractionID] || allAttractions[i].EntryFee > remainingAttrBudget {
-				continue
-			}
-			d := calculateDistance(bestRestaurant.Latitude, bestRestaurant.Longitude, allAttractions[i].Latitude, allAttractions[i].Longitude)
-			if d < minDistanceAttr {
-				minDistanceAttr = d
-				secondAttraction = &allAttractions[i]
+			for j := range allAttractions {
+				if !usedAttractions[allAttractions[j].AttractionID] {
+					firstAttraction = &allAttractions[j]
+					usedAttractions[firstAttraction.AttractionID] = true
+					s.saveActivity(tx, currentDayID, "attraction", firstAttraction.AttractionID, 1, allAttractions, dayPlan.Date)
+					lastLat, lastLon = firstAttraction.Latitude, firstAttraction.Longitude
+					break
+				}
 			}
 
-			if secondAttraction != nil {
-				usedAttractions[secondAttraction.AttractionID] = true
-			}
+			if firstAttraction != nil {
+				var bestRest *models.Restaurant
+				minD := 999999.0
+				for j := range allRestaurants {
+					d := calculateDistance(lastLat, lastLon, allRestaurants[j].Latitude, allRestaurants[j].Longitude)
+					if d < minD {
+						minD = d
+						bestRest = &allRestaurants[j]
+					}
+				}
+				if bestRest != nil {
+					s.saveActivity(tx, currentDayID, "restaurant", bestRest.RestaurantID, 2, nil, dayPlan.Date)
+					lastLat, lastLon = bestRest.Latitude, bestRest.Longitude
+				}
 
-			s.saveActivity(int64(currentDayItineraryID), "Attraction", firstAttraction.AttractionID, 1, allAttractions)
-			if bestRestaurant != nil {
-				s.saveActivity(int64(currentDayItineraryID), "Restaurant", bestRestaurant.RestaurantID, 2, allAttractions)
-			}
-			if secondAttraction != nil {
-				s.saveActivity(int64(currentDayItineraryID), "Attraction", secondAttraction.AttractionID, 3, allAttractions)
+				for j := range allAttractions {
+					if !usedAttractions[allAttractions[j].AttractionID] && (firstAttraction.EntryFee+allAttractions[j].EntryFee <= dailyAttractionLimit) {
+						usedAttractions[allAttractions[j].AttractionID] = true
+						s.saveActivity(tx, currentDayID, "attraction", allAttractions[j].AttractionID, 3, allAttractions, dayPlan.Date)
+						break
+					}
+				}
+				s.saveActivity(tx, currentDayID, "hotel", hotelID, 4, nil, dayPlan.Date)
 			}
 		}
 	}
@@ -252,64 +294,145 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	return R * c
 }
 
-func (s *TripPlanningService) saveActivity(itineraryID int64, aType string, entityID int, order int, allAttractions []models.Attraction) {
+func (s *TripPlanningService) saveActivity(tx *sql.Tx, itineraryID int64, aType string, entityID int, order int, allAttractions []models.Attraction, dayDate time.Time) {
+	aType = strings.ToLower(aType)
+
+	var startTime, endTime time.Time
+	switch order {
+	case 0, 1:
+		startTime = time.Date(dayDate.Year(), dayDate.Month(), dayDate.Day(), 10, 0, 0, 0, dayDate.Location())
+		endTime = startTime.Add(2 * time.Hour)
+	case 2:
+		startTime = time.Date(dayDate.Year(), dayDate.Month(), dayDate.Day(), 13, 0, 0, 0, dayDate.Location())
+		endTime = startTime.Add(1*time.Hour + 30*time.Minute)
+	case 3, 4:
+		startTime = time.Date(dayDate.Year(), dayDate.Month(), dayDate.Day(), 17, 0, 0, 0, dayDate.Location())
+		endTime = startTime.Add(2 * time.Hour)
+	default:
+		startTime = dayDate
+		endTime = dayDate.Add(2 * time.Hour)
+	}
+
 	activity := &models.ItineraryActivity{
 		ItineraryID:  itineraryID,
 		ActivityType: aType,
 		OrderNumber:  order,
+		StartTime:    startTime,
+		EndTime:      endTime,
+		AttractionID: sql.NullInt64{Int64: 0, Valid: false},
+		RestaurantID: sql.NullInt64{Int64: 0, Valid: false},
+		HotelID:      sql.NullInt64{Int64: 0, Valid: false},
+		FlightID:     sql.NullInt64{Int64: 0, Valid: false},
 	}
-	if aType == "Attraction" {
-		activity.AttractionID = sql.NullInt64{Int64: int64(entityID), Valid: true}
 
-		var lat, lon float64
-		found := false
-		for _, a := range allAttractions {
-			if a.AttractionID == entityID {
-				lat, lon = a.Latitude, a.Longitude
-				found = true
-				break
-			}
+	switch aType {
+	case "flight":
+		if entityID > 0 {
+			activity.FlightID = sql.NullInt64{Int64: int64(entityID), Valid: true}
+			activity.Notes = "Please arrive at the airport 3 hours before departure."
 		}
+	case "hotel":
+		if entityID > 0 {
+			activity.HotelID = sql.NullInt64{Int64: int64(entityID), Valid: true}
+			activity.Notes = "Accommodation check-in/stay."
+		}
+	case "restaurant":
+		if entityID > 0 {
+			activity.RestaurantID = sql.NullInt64{Int64: int64(entityID), Valid: true}
+			activity.Notes = "Enjoy your meal. Local alternatives are available if busy."
+		}
+	case "attraction", "event":
+		activity.ActivityType = "attraction"
+		if entityID > 0 {
+			activity.AttractionID = sql.NullInt64{Int64: int64(entityID), Valid: true}
+			var lat, lon float64
+			found := false
 
-		if found {
-			var backupName string
-			minDist := 5.0
 			for _, a := range allAttractions {
-				if a.AttractionID != entityID {
-					d := calculateDistance(lat, lon, a.Latitude, a.Longitude)
-					if d < minDist {
-						minDist = d
-						backupName = a.Name
-					}
+				if a.AttractionID == entityID {
+					lat, lon = a.Latitude, a.Longitude
+					found = true
+					break
 				}
 			}
-
-			if backupName != "" {
-				activity.Notes = fmt.Sprintf("Backup plan: Visit %s if the primary location is unavailable.", backupName)
+			if found {
+				minD := 9999.0
+				var backup string
+				for _, a := range allAttractions {
+					if a.AttractionID != entityID {
+						d := calculateDistance(lat, lon, a.Latitude, a.Longitude)
+						if d < minD {
+							minD = d
+							backup = a.Name
+						}
+					}
+				}
+				if backup != "" {
+					activity.Notes = fmt.Sprintf("If this place is closed, the best nearby alternative is %s.", backup)
+				}
 			}
 		} else {
-			activity.Notes = "Backup plan: Explore the local historic district or nearby public parks."
+			activity.AttractionID = sql.NullInt64{Valid: false}
+			if order == 2 {
+				activity.Notes = "Welcome. Enjoy a relaxing walk in a nearby park after your flight."
+			} else {
+				activity.Notes = "Last day. Perfect time for souvenir shopping and a final city stroll."
+			}
 		}
-	} else if aType == "Restaurant" {
-		activity.RestaurantID = sql.NullInt64{Int64: int64(entityID), Valid: true}
+
 	}
-	s.ItineraryActivitiesRepo.Insert(activity)
+
+	_, err := s.ItineraryActivitiesRepo.Insert(tx, activity)
+	if err != nil {
+		slog.Error("Failed to insert itinerary activity",
+			"itinerary_id", itineraryID,
+			"activity_type", aType,
+			"order", order,
+			"error", err)
+	}
 }
 
-func (s *TripPlanningService) FinalizeTripPlan(tripID int, tier string) error {
+func (s *TripPlanningService) FinalizeTripPlan(tripID int, tier string, hotelID int, outboundFlightID int, inboundFlightID int) error {
+	l := slog.With("trip_id", tripID, "tier", tier)
+	l.Info("Finalizing trip plan")
+
 	trip, err := s.TripRepo.GetTripByID(tripID)
 	if err != nil {
+		l.Error("Trip not found", "error", err)
 		return err
 	}
 
+	tx, err := s.TripRepo.GetConn().Begin()
+	if err != nil {
+		l.Error("Transaction failed to start", "error", err)
+		return err
+	}
+	defer tx.Rollback()
+
 	activitiesBudget := trip.TotalPrice * 0.30
-	DurationDays := int(trip.EndDate.Sub(trip.StartDate).Hours() / 24)
-	return s.PopulateItineraryDetails(
+	DurationDays := int(trip.EndDate.Sub(trip.StartDate).Hours()/24) + 1
+	err = s.PopulateItineraryDetails(
+		tx,
 		trip.TripID,
 		trip.DestinationCityID,
 		tier,
 		activitiesBudget,
 		DurationDays,
 		trip.StartDate,
+		hotelID,
+		outboundFlightID,
+		inboundFlightID,
 	)
+	if err != nil {
+		l.Error("Failed to populate details", "error", err)
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		l.Error("Finalize commit failed", "error", err)
+		return err
+	}
+
+	l.Info("Trip finalized and saved successfully")
+	return nil
 }

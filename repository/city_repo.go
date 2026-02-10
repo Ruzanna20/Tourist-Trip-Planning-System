@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -53,10 +53,15 @@ func (r *CityRepository) Upsert(city *models.City) (int, error) {
 	).Scan(&cityID)
 
 	if err != nil {
-		log.Printf("ERROR inserting city %s (CountryID %d): %v", city.Name, city.CountryID, err)
+		slog.Error("Failed to upsert city",
+			"city_name", city.Name,
+			"country_id", city.CountryID,
+			"error", err,
+		)
 		return 0, fmt.Errorf("failed to insert city %s: %w", city.Name, err)
 	}
 
+	slog.Debug("City upserted successfully", "city_name", city.Name, "city_id", cityID)
 	return cityID, nil
 }
 
@@ -72,6 +77,7 @@ func (r *CityRepository) GetAllCityLocations() ([]CityLocation, error) {
 	query := `SELECT city_id, name, latitude, longitude, iata_code FROM cities;`
 	rows, err := r.db.Query(query)
 	if err != nil {
+		slog.Error("Failed to fetch city locations", "error", err)
 		return nil, fmt.Errorf("failed to fetch all city locations: %w", err)
 	}
 	defer rows.Close()
@@ -81,17 +87,12 @@ func (r *CityRepository) GetAllCityLocations() ([]CityLocation, error) {
 		var loc CityLocation
 		var iataSql sql.NullString
 		if err := rows.Scan(&loc.ID, &loc.Name, &loc.Latitude, &loc.Longitude, &iataSql); err != nil {
-			log.Printf("Error scanning city location row: %v", err)
+			slog.Warn("Error scanning city location row", "error", err)
 			continue
 		}
 		loc.IataCode = iataSql.String
 		locations = append(locations, loc)
 	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error after scanning city rows: %w", err)
-	}
-
 	return locations, nil
 }
 
@@ -101,7 +102,8 @@ func (r *CityRepository) GetAllCities() ([]models.City, error) {
 
 	rows, err := r.db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch all city locations: %w", err)
+		slog.Error("Failed to fetch all cities", "error", err)
+		return nil, fmt.Errorf("failed to fetch all cities: %w", err)
 	}
 	defer rows.Close()
 
@@ -118,7 +120,7 @@ func (r *CityRepository) GetAllCities() ([]models.City, error) {
 			&city.CreatedAt,
 			&city.UpdatedAt,
 		); err != nil {
-			log.Printf("Error scanning city location row: %v", err)
+			slog.Warn("Error scanning city row", "error", err)
 			continue
 		}
 		cities = append(cities, city)
@@ -135,7 +137,14 @@ func (r *CityRepository) UpsertCityIata(cityID int, iataCode string) error {
 
 	_, err := r.db.Exec(query, iataCode, cityID)
 	if err != nil {
+		slog.Error("Failed to update IATA code",
+			"city_id", cityID,
+			"iata_code", iataCode,
+			"error", err,
+		)
 		return fmt.Errorf("failed to update IATA code for city %d: %w", cityID, err)
 	}
+
+	slog.Info("City IATA code updated", "city_id", cityID, "iata_code", iataCode)
 	return nil
 }

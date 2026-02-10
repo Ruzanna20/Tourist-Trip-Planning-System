@@ -1,13 +1,17 @@
 package server
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	"travel-planning/handlers"
 	"travel-planning/services"
 
+	_ "travel-planning/docs"
+
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type AppServer struct {
@@ -38,9 +42,10 @@ func NewAppServer(
 }
 
 func (s *AppServer) Start(port string) {
-	log.Printf("Server starting on port %s", port)
+	slog.Info("Starting Application Server", "port", port)
 
 	r := mux.NewRouter()
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 	authMiddleware := s.JWTService.AuthMiddleware
 
 	//Auth
@@ -56,7 +61,7 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler)).Methods("GET")
 
 	//review
-	http.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler))
+	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler)).Methods("POST")
 
 	// Trips
 	r.HandleFunc("/api/trips/{id}/generate-options", authMiddleware(s.TripHandlers.GenerateTripOptions)).Methods("POST")
@@ -71,5 +76,11 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/register", s.UserHandlers.RegisterUserHandler).Methods("POST")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(port, r))
+	slog.Info("Routes registered successfully")
+
+	fmt.Printf("Swagger UI available at http://localhost%s/swagger/index.html\n", port)
+
+	if err := http.ListenAndServe(port, r); err != nil {
+		slog.Error("Server failed to start", "error", err)
+	}
 }

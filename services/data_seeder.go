@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 	"travel-planning/repository"
@@ -58,38 +58,43 @@ func NewDataSeeder(
 }
 
 func (s *DataSeeder) SeedCountries() error {
-	log.Println("Starting country seeding process...")
+	slog.Info("Starting country seeding process")
 
 	countriesToSeed, err := s.countryAPIService.FetchAllCountries()
 	if err != nil {
+		slog.Error("Country API fetch failed", "error", err)
 		return fmt.Errorf("country API fetch failed: %w", err)
 	}
 
-	log.Printf("Fetched countries from API.Starting db insertion")
+	slog.Info("Fetched countries from API, starting DB insertion", "count", len(countriesToSeed))
 
 	for _, country := range countriesToSeed {
-		lastInsertedID, err := s.countryRepo.Upsert(&country)
+		_, err := s.countryRepo.Upsert(&country)
 		if err != nil {
-			log.Printf("ERROR.Failed to insert country(%v) %s (%s): %v", lastInsertedID, country.Name, country.Code, err)
+			slog.Error("Failed to insert country", "name", country.Name, "code", country.Code, "error", err)
 			continue
 		}
 	}
-	log.Println("Ending country seeding proccess...")
+	slog.Info("Country seeding process completed")
 	return nil
 }
 
 func (s *DataSeeder) SeedCities() error {
-	log.Println("Starting City Seeding process...")
+	slog.Info("Starting City Seeding process")
 
 	countries, err := s.countryRepo.GetAll()
 	if err != nil {
+		slog.Error("Failed to get countries from DB", "error", err)
 		return fmt.Errorf("failed tp get countries in db:%w", err)
 	}
 
 	for _, country := range countries {
+		l := slog.With("country", country.Name, "code", country.Code)
+		l.Info("Fetching cities for country")
+
 		apiCities, err := s.cityAPIService.FetchCitiesByCountry(country.Code)
 		if err != nil {
-			log.Printf("Error fetching cities for %s(%s):%v", country.Name, country.Code, err)
+			l.Error("Error fetching cities", "error", err)
 			time.Sleep(4 * time.Second)
 			continue
 		}
@@ -104,86 +109,96 @@ func (s *DataSeeder) SeedCities() error {
 			}
 
 			if _, err := s.cityRepo.Upsert(newCity); err != nil {
-				log.Printf("Failed to insert city %s: %v", newCity.Name, err)
+				l.Error("Failed to insert city", "city_name", newCity.Name, "error", err)
 				continue
 			}
 		}
+		l.Info("Finished cities for country", "cities_count", len(apiCities))
 		time.Sleep(4 * time.Second)
 	}
-	log.Println("Ending city seeding proccess...")
+
+	slog.Info("City seeding process completed")
 	return nil
 }
 
 func (s *DataSeeder) SeedHotels() error {
-	log.Println("Starting Hotels Seeding process...")
+	slog.Info("Starting Hotels Seeding process")
 
 	cityLocations, err := s.cityRepo.GetAllCityLocations()
 	if err != nil {
+		slog.Error("Failed to get cities locations", "error", err)
 		return fmt.Errorf("failed to get city locations: %w", err)
 	}
 	if len(cityLocations) == 0 {
+		slog.Error("Failed to get cities in db", "error", err)
 		return fmt.Errorf("no cities found in database")
 	}
 
 	for _, cityLoc := range cityLocations {
+		l := slog.With("city", cityLoc.Name, "id", cityLoc.ID)
+
 		if cityLoc.Latitude == 0 || cityLoc.Longitude == 0 {
-			log.Printf("Skipping %s (ID %d): Invalid zero coordinates (Lat:%.4f, Lon:%.4f).",
-				cityLoc.Name, cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude)
+			l.Warn("Skipping city: Invalid zero coordinates")
 			continue
 		}
 
+		l.Info("Fetching hotels for city")
 		hotels, err := s.hotelAPIService.FetchHotelsByCity(
 			cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude,
 		)
 		if err != nil {
-			log.Printf("Error fetching hotels for %s: %v", cityLoc.Name, err)
-			time.Sleep(1500 * time.Millisecond)
+			l.Error("Error fetching hotels", "error", err)
+			time.Sleep(2 * time.Second)
 			continue
 		}
 
 		for _, hotel := range hotels {
 			_, err = s.hotelRepo.Upsert(hotel)
 			if err != nil {
-				log.Printf("Failed to insert hotel %s: %v", hotel.Name, err)
+				l.Error("Failed to insert hotel", "hotel_name", hotel.Name, "error", err)
 				continue
 			}
 		}
 		time.Sleep(1500 * time.Millisecond)
 	}
-	log.Println("Ending hotels seeding proccess...")
+	slog.Info("Hotels seeding process completed")
 	return nil
 }
 
 func (s *DataSeeder) SeedRestaurants() error {
-	log.Println("Starting Restaurants Seeding process...")
+	slog.Info("Starting Restaurants Seeding")
 
 	cityLocations, err := s.cityRepo.GetAllCityLocations()
 	if err != nil {
+		slog.Error("Failed to get cities locations", "error", err)
 		return fmt.Errorf("failed to get city locations: %w", err)
 	}
 	if len(cityLocations) == 0 {
+		slog.Error("Failed to get cities in db", "error", err)
 		return fmt.Errorf("no cities found in database")
 	}
 
 	for _, cityLoc := range cityLocations {
+		l := slog.With("city", cityLoc.Name, "id", cityLoc.ID)
+
 		if cityLoc.Latitude == 0 || cityLoc.Longitude == 0 {
-			log.Printf("Skipping %s (ID %d): Invalid zero coordinates (Lat:%.4f, Lon:%.4f).",
-				cityLoc.Name, cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude)
+			l.Warn("Skipping city: Invalid zero coordinates")
 			continue
 		}
 
+		l.Info("Fetching restaurants for city")
 		restaurants, err := s.restaurantAPIService.FetchRestaurantsByCity(
 			cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude,
 		)
 		if err != nil {
-			log.Printf("Error fetching restaurants for %s: %v", cityLoc.Name, err)
+			l.Error("Error fetching restaurants", "error", err)
 			continue
 		}
 
 		for _, restaurant := range restaurants {
 			_, err := s.restaurantRepo.Upsert(restaurant)
 			if err != nil {
-				log.Printf("Failed to insert restaurant %s: %v", restaurant.Name, err)
+				l.Error("Failed to insert restaurant", "hotel_name", restaurant.Name, "error", err)
 				continue
 			}
 		}
@@ -191,14 +206,17 @@ func (s *DataSeeder) SeedRestaurants() error {
 		time.Sleep(3 * time.Second)
 
 	}
-	log.Println("Ending restaurants seeding proccess...")
+	slog.Info("Restaurants seeding process completed")
 	return nil
 }
 
 func (s *DataSeeder) processFlightRoute(fromCityID, toCityID int, fromIata, toIata string) error {
+	l := slog.With("from", fromIata, "to", toIata)
+
 	flightOffer, err := s.flightAPIService.FindBestFlightOffer(fromIata, toIata)
 
 	if err != nil {
+		l.Error("Flight search API failed", "error", err)
 		return fmt.Errorf("flight search failed: %w", err)
 	}
 
@@ -207,19 +225,22 @@ func (s *DataSeeder) processFlightRoute(fromCityID, toCityID int, fromIata, toIa
 		flightOffer.ToCityID = toCityID
 
 		if _, err := s.flightRepo.Upsert(flightOffer); err != nil {
+			l.Error("Critical DB error upserting flight route", "error", err)
 			return fmt.Errorf("critical DB error upserting flight route: %w", err)
 		}
+		l.Debug("Flight route saved to DB", "price", flightOffer.Price)
 	} else {
-		log.Printf("INFO: No flight found for %s -> %s.", fromIata, toIata)
+		l.Info("No flight found for route")
 	}
 	return nil
 }
 
 func (s *DataSeeder) SeedFlights() error {
-	log.Println("Starting Flights Seeding...")
+	slog.Info("Starting Flights Seeding process")
 
 	iataMap, err := s.flightAPIService.CityLocationsToIATA()
 	if err != nil {
+		slog.Error("Failed to map cities to IATA codes", "error", err)
 		return fmt.Errorf("failed to map cities to IATA codes: %w", err)
 	}
 
@@ -232,14 +253,14 @@ func (s *DataSeeder) SeedFlights() error {
 
 	const limit = 5
 	totalCities := len(cityIDs)
-	log.Printf("Total possible flight routes to check: %d x %d (max) = %d routes.", totalCities, limit, totalCities*limit)
+	slog.Info("Flight routes check planned", "total_cities", totalCities, "limit_per_city", limit)
 
 	for i := 0; i < totalCities; i++ {
 		fromCityID := cityIDs[i]
 		fromIata := iataMap[fromCityID]
 
 		if i%50 == 0 {
-			log.Printf("Progress: Starting search for city #%d of %d (IATA: %s)...", i, totalCities, fromIata) // <<< Աշխատանքի Ընթացք
+			slog.Info("Flights seeding progress", "current_index", i, "total", totalCities, "origin_iata", fromIata)
 		}
 
 		maxRange := i + limit
@@ -256,42 +277,46 @@ func (s *DataSeeder) SeedFlights() error {
 			}
 
 			if err := s.processFlightRoute(fromCityID, toCityID, fromIata, toIata); err != nil {
-				log.Printf("Route failed (%s -> %s): %v", fromIata, toIata, err)
+				slog.Warn("Route failed", "from", fromIata, "to", toIata, "error", err)
 			}
 			time.Sleep(3 * time.Second)
 
 			if err := s.processFlightRoute(toCityID, fromCityID, toIata, fromIata); err != nil {
-				log.Printf("Route failed (%s -> %s): %v", toIata, fromIata, err)
+				slog.Warn("Route failed", "from", toIata, "to", fromIata, "error", err)
 			}
 			time.Sleep(3 * time.Second)
 		}
 	}
 
-	log.Println("Ending flights seeding proccess...")
+	slog.Info("Ending flights seeding process")
 	return nil
 }
 
 func (s *DataSeeder) SeedAttractions() error {
-	log.Println("Starting Attraction Seeding process...")
+	slog.Info("Starting Attraction Seeding process")
 
 	cityLocations, err := s.cityRepo.GetAllCityLocations()
 	if err != nil {
+		slog.Error("Failed to get cities locations", "error", err)
 		return fmt.Errorf("failed to get city locations: %w", err)
 	}
 	if len(cityLocations) == 0 {
+		slog.Error("Failed to get cities in db", "error", err)
 		return fmt.Errorf("no cities found in database")
 	}
 
 	for _, cityLoc := range cityLocations {
+		l := slog.With("city", cityLoc.Name, "id", cityLoc.ID)
+
 		if cityLoc.Latitude == 0 || cityLoc.Longitude == 0 {
-			log.Printf("Skipping %s (ID %d): Invalid zero coordinates (Lat:%.4f, Lon:%.4f).",
-				cityLoc.Name, cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude)
+			l.Warn("Skipping city: Invalid zero coordinates")
 			continue
 		}
 
+		l.Info("Fetching attractions for city")
 		attractionData, err := s.attractionAPIService.FetchAttractionByCity(cityLoc.ID, cityLoc.Latitude, cityLoc.Longitude)
 		if err != nil {
-			log.Printf("ERROR fetching attractions for %s: %v", cityLoc.Name, err)
+			l.Error("Failed to fetch attractions from API", "error", err)
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -300,12 +325,13 @@ func (s *DataSeeder) SeedAttractions() error {
 			attraction.CityID = cityLoc.ID
 			_, err := s.attractionRepo.Upsert(&attraction)
 			if err != nil {
-				log.Printf("Failed to insert attraction %s: %v", attraction.Name, err)
+				l.Error("Failed to insert attraction into DB", "attraction_name", attraction.Name, "error", err)
 				continue
 			}
 		}
+		l.Info("Successfully seeded attractions for city", "count", len(attractionData))
 		time.Sleep(3 * time.Second)
 	}
-	log.Println("Ending attractions seeding proccess...")
+	slog.Info("Attraction seeding process completed")
 	return nil
 }

@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -44,9 +44,15 @@ func (r *ReviewRepository) Insert(review *models.Review) (int, error) {
 	).Scan(&reviewID)
 
 	if err != nil {
-		log.Printf("DB Error inserting review for user %d: %v", review.UserID, err)
-		return 0, fmt.Errorf("failed to insert review: %w", err)
+		slog.Error("Failed to insert review",
+			"user_id", review.UserID,
+			"entity_type", review.EntityType,
+			"entity_id", review.EntityID,
+			"error", err,
+		)
+		return 0, fmt.Errorf("failed to insert review for user %d: %w", review.UserID, err)
 	}
-	return reviewID, nil
 
+	slog.Debug("Review inserted successfully", "review_id", reviewID, "user_id", review.UserID)
+	return reviewID, nil
 }

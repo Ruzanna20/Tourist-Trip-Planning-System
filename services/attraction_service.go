@@ -3,7 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -35,6 +35,9 @@ type AttractionAPIResponse struct {
 }
 
 func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float64) ([]models.Attraction, error) {
+	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
+	l.Info("Fetching attractions from Overpass API")
+
 	query := fmt.Sprintf(`
     [out:json][timeout:90];
     (
@@ -47,6 +50,8 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 	data := url.Values{}
 	data.Set("data", query)
 
+	startTime := time.Now()
+
 	resp, err := s.client.Post(
 		AttractionAPIUrl,
 		"application/x-www-form-urlencoded",
@@ -54,22 +59,30 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 	)
 
 	if err != nil {
+		l.Error("Overpass API request failed", "error", err)
 		return nil, fmt.Errorf("failed to make overpass API request: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
+	l.Debug("Overpass API response received", "duration", time.Since(startTime))
+
+	if resp.StatusCode != http.StatusOK {
+		l.Warn("Overpass API returned non-OK status", "status", resp.StatusCode)
+		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
+	}
+
 	var apiattractions AttractionAPIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apiattractions); err != nil {
+		l.Error("Failed to decode Overpass JSON", "error", err)
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
 	var attractions []models.Attraction
 	for _, element := range apiattractions.Elements {
 		name := element.Tags["name:en"]
+		if name == "" {
+			name = element.Tags["name"]
+		}
 
 		website := element.Tags["website"]
 		if website == "" {
@@ -117,6 +130,6 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 		attractions = append(attractions, newAttraction)
 	}
 
-	log.Printf("Successfully processed %d attractions for city %d.", len(attractions), cityID)
+	l.Info("Successfully processed attractions", "total_found", len(apiattractions.Elements), "added_to_db", len(attractions))
 	return attractions, nil
 }

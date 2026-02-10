@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -18,14 +18,18 @@ func NewTripRepository(db *sql.DB) *TripRepository {
 	}
 }
 
-func (r *TripRepository) Insert(trip *models.Trip) (int, error) {
+func (r *TripRepository) GetConn() *sql.DB {
+	return r.db
+}
+
+func (r *TripRepository) Insert(tx *sql.Tx, trip *models.Trip) (int, error) {
 	query := `INSERT INTO trips (user_id, destination_city_id, title, start_date, end_date, total_price, currency, status, created_at, updated_at)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING trip_id;`
 
 	var tripID int
 	currTime := time.Now()
-	err := r.db.QueryRow(
+	err := tx.QueryRow(
 		query,
 		trip.UserID,
 		trip.DestinationCityID,
@@ -40,14 +44,21 @@ func (r *TripRepository) Insert(trip *models.Trip) (int, error) {
 	).Scan(&tripID)
 
 	if err != nil {
-		log.Printf("DB error inserting new trip for user %d: %v", trip.UserID, err)
+		slog.Error("Failed to insert new trip",
+			"user_id", trip.UserID,
+			"title", trip.Title,
+			"error", err,
+		)
 		return 0, fmt.Errorf("failed to insert new trip: %w", err)
 	}
 
+	slog.Debug("Trip inserted successfully", "trip_id", tripID, "user_id", trip.UserID)
 	return tripID, nil
 }
 
 func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) {
+	slog.Info("Fetching all trips for user", "user_id", userID)
+
 	query := `SELECT 
                 trip_id, user_id, destination_city_id, title, start_date, end_date, 
                 total_price, currency, status, created_at, updated_at
@@ -56,6 +67,7 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 
 	rows, err := r.db.Query(query, userID)
 	if err != nil {
+		slog.Error("Failed to fetch trips for user", "user_id", userID, "error", err)
 		return nil, fmt.Errorf("failed to fetch trips for user %d: %w", userID, err)
 	}
 	defer rows.Close()
@@ -72,7 +84,7 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 			&t.StartDate, &t.EndDate, &totalPriceSql, &currencySql,
 			&statusSql, &t.CreatedAt, &t.UpdatedAt,
 		); err != nil {
-			log.Printf("Error scanning trip row for user %d: %v", userID, err)
+			slog.Warn("Error scanning trip row", "user_id", userID, "error", err)
 			continue
 		}
 		t.TotalPrice = totalPriceSql.Float64
@@ -82,14 +94,12 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 		trips = append(trips, t)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
-	}
-
 	return trips, nil
 }
 
 func (r *TripRepository) GetTripByID(tripID int) (*models.Trip, error) {
+	slog.Debug("Fetching trip by ID", "trip_id", tripID)
+
 	query := `SELECT 
                 trip_id, user_id, destination_city_id, title, start_date, end_date, 
                 total_price, status, created_at, updated_at
@@ -115,8 +125,10 @@ func (r *TripRepository) GetTripByID(tripID int) (*models.Trip, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.Warn("Trip not found", "trip_id", tripID)
 			return nil, fmt.Errorf("trip with id %d not found", tripID)
 		}
+		slog.Error("Database error in GetTripByID", "trip_id", tripID, "error", err)
 		return nil, err
 	}
 

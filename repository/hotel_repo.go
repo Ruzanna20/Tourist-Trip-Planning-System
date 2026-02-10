@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 	"travel-planning/models"
 )
@@ -28,7 +28,6 @@ func (r *HotelRepository) Upsert(hotel *models.Hotel) (int, error) {
             stars = EXCLUDED.stars,
             rating = EXCLUDED.rating,
             price_per_night = EXCLUDED.price_per_night,
-            currency = EXCLUDED.currency,
             description = EXCLUDED.description,
             image_url = EXCLUDED.image_url,
             phone = COALESCE(EXCLUDED.phone, hotels.phone), 
@@ -62,8 +61,15 @@ func (r *HotelRepository) Upsert(hotel *models.Hotel) (int, error) {
 	).Scan(&hotelID)
 
 	if err != nil {
+		slog.Error("Failed to upsert hotel",
+			"hotel_name", hotel.Name,
+			"city_id", hotel.CityID,
+			"error", err,
+		)
 		return 0, fmt.Errorf("failed to upsert hotel %s: %w", hotel.Name, err)
 	}
+
+	slog.Debug("Hotel upserted successfully", "hotel_id", hotelID, "name", hotel.Name)
 	return hotelID, nil
 }
 
@@ -76,6 +82,7 @@ func (r *HotelRepository) GetAllHotels() ([]models.Hotel, error) {
 
 	rows, err := r.db.Query(query)
 	if err != nil {
+		slog.Error("Failed to fetch all hotels", "error", err)
 		return nil, fmt.Errorf("failed to fetch all hotels: %w", err)
 	}
 	defer rows.Close()
@@ -92,7 +99,7 @@ func (r *HotelRepository) GetAllHotels() ([]models.Hotel, error) {
 			&starsSql, &ratingSql, &priceSql, &phoneSql,
 			&websiteSql, &imageUrlSql, &descriptionSql, &h.CreatedAt, &h.UpdatedAt,
 		); err != nil {
-			log.Printf("Error scanning hotel row: %v", err)
+			slog.Warn("Error scanning hotel row", "error", err)
 			continue
 		}
 
@@ -106,14 +113,12 @@ func (r *HotelRepository) GetAllHotels() ([]models.Hotel, error) {
 		hotels = append(hotels, h)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
-	}
-
 	return hotels, nil
 }
 
 func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier string) (*models.Hotel, error) {
+	slog.Info("Searching for best hotel", "city_id", cityID, "budget_max", budgetMax, "tier", tier)
+
 	hotel := &models.Hotel{}
 	var orderBy string
 	var filter string
@@ -131,13 +136,13 @@ func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier
 	}
 
 	query := fmt.Sprintf(`
-	SELECT 
-		hotel_id, city_id, name, address, stars, rating, price_per_night, 
-		phone, website, image_url, description
-	FROM hotels 
-	WHERE city_id = $1 AND price_per_night <= $2  %s
-	ORDER BY %s
-	LIMIT 1`, filter, orderBy)
+    SELECT 
+        hotel_id, city_id, name, address, stars, rating, price_per_night, 
+        phone, website, image_url, description
+    FROM hotels 
+    WHERE city_id = $1 AND price_per_night <= $2  %s
+    ORDER BY %s
+    LIMIT 1`, filter, orderBy)
 
 	err := r.db.QueryRow(query, cityID, budgetMax).Scan(
 		&hotel.HotelID,
@@ -155,9 +160,12 @@ func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.Debug("No hotels found matching criteria", "city_id", cityID, "tier", tier)
 			return nil, nil
 		}
+		slog.Error("Database error searching for hotel", "error", err, "city_id", cityID)
 		return nil, fmt.Errorf("failed to find hotel: %w", err)
 	}
+
 	return hotel, nil
 }
