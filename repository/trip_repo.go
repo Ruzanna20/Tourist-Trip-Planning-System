@@ -23,8 +23,8 @@ func (r *TripRepository) GetConn() *sql.DB {
 }
 
 func (r *TripRepository) Insert(tx *sql.Tx, trip *models.Trip) (int, error) {
-	query := `INSERT INTO trips (user_id, destination_city_id, title, start_date, end_date, total_price, currency, status, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	query := `INSERT INTO trips (user_id, destination_city_id, title, start_date, end_date, total_price, status, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING trip_id;`
 
 	var tripID int
@@ -37,7 +37,6 @@ func (r *TripRepository) Insert(tx *sql.Tx, trip *models.Trip) (int, error) {
 		trip.StartDate,
 		trip.EndDate,
 		trip.TotalPrice,
-		trip.Currency,
 		trip.Status,
 		currTime,
 		currTime,
@@ -61,7 +60,7 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 
 	query := `SELECT 
                 trip_id, user_id, destination_city_id, title, start_date, end_date, 
-                total_price, currency, status, created_at, updated_at
+                total_price, status, created_at, updated_at
               FROM trips 
               WHERE user_id = $1`
 
@@ -77,18 +76,17 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 	for rows.Next() {
 		var t models.Trip
 		var totalPriceSql sql.NullFloat64
-		var currencySql, statusSql sql.NullString
+		var statusSql sql.NullString
 
 		if err := rows.Scan(
 			&t.TripID, &t.UserID, &t.DestinationCityID, &t.Title,
-			&t.StartDate, &t.EndDate, &totalPriceSql, &currencySql,
+			&t.StartDate, &t.EndDate, &totalPriceSql,
 			&statusSql, &t.CreatedAt, &t.UpdatedAt,
 		); err != nil {
 			slog.Warn("Error scanning trip row", "user_id", userID, "error", err)
 			continue
 		}
 		t.TotalPrice = totalPriceSql.Float64
-		t.Currency = currencySql.String
 		t.Status = statusSql.String
 
 		trips = append(trips, t)

@@ -116,11 +116,11 @@ func main() {
 
 	if *seedFlag {
 		slog.Info("Starting Seeding Job")
-		// country
-		if err := seeder.SeedCountries(); err != nil {
-			slog.Error("CRITICAL: Country Seeding failed", "error", err)
-			os.Exit(1)
-		}
+		// // country
+		// if err := seeder.SeedCountries(); err != nil {
+		// 	slog.Error("CRITICAL: Country Seeding failed", "error", err)
+		// 	os.Exit(1)
+		// }
 
 		// //city
 		// if err = seeder.SeedCities(); err != nil {
@@ -146,11 +146,11 @@ func main() {
 		// 	os.Exit(1)
 		// }
 
-		// //flight
-		// if err = seeder.SeedFlights(); err != nil {
-		// 	slog.Error("CRITICAL: Flight Seeding failed", "error", err)
-		// 	os.Exit(1)
-		// }
+		//flight
+		if err = seeder.SeedFlights(); err != nil {
+			slog.Error("CRITICAL: Flight Seeding failed", "error", err)
+			os.Exit(1)
+		}
 
 		slog.Info("Seeding Job finished successfully")
 		return

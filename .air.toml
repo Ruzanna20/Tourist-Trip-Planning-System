@@ -1,0 +1,12 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "./tmp/main"
+  cmd = "go build -o ./tmp/main ."
+  delay = 1000
+  exclude_dir = ["assets", "tmp", "vendor", "grafana", "prometheus"]
+  include_ext = ["go", "tpl", "tmpl", "html", ".env"]
+
+[log]
+  time = true

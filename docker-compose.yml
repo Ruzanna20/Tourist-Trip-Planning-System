@@ -1,14 +1,31 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: travel_db 
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "5432:5432"
+    networks:
+      - travel-network
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: travel-backend
+    container_name: travel_backend
+    volumes:
+      - .:/app
+    restart: always
+    depends_on:
+      - db 
     environment:
       - TZ=Asia/Yerevan
-      - DB_HOST=${DB_HOST}
+      - DB_HOST=db
       - DB_PORT=${DB_PORT}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -19,6 +36,45 @@ services:
     networks:
       - travel-network
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - travel-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    networks:
+      - travel-network
+
+  loki:
+      image: grafana/loki:2.9.0
+      container_name: loki
+      ports:
+        - "3100:3100"
+      command: -config.file=/etc/loki/local-config.yaml
+      networks:
+        - travel-network
+
+  promtail:
+      image: grafana/promtail:2.9.0
+      container_name: promtail
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ./promtail-config.yml:/etc/promtail/config.yml
+      command: -config.file=/etc/promtail/config.yml
+      networks:
+        - travel-network
+
 networks:
   travel-network:
-    external: true 
+    driver: bridge

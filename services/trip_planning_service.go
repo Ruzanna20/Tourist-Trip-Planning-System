@@ -146,8 +146,6 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		StartDate:         startDate,
 		EndDate:           endDate,
 		DestinationCityID: req.ToCityID,
-		TotalPrice:        req.BudgetAmount,
-		Currency:          req.Currency,
 		Status:            "Planned",
 	}
 

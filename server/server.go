@@ -12,6 +12,8 @@ import (
 
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type AppServer struct {
@@ -45,14 +47,17 @@ func (s *AppServer) Start(port string) {
 	slog.Info("Starting Application Server", "port", port)
 
 	r := mux.NewRouter()
+
+	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
+
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 	authMiddleware := s.JWTService.AuthMiddleware
 
-	//Auth
+	// Auth
 	r.HandleFunc("/login", s.AuthHandlers.LoginHandler).Methods("POST")
 	r.HandleFunc("/refresh", s.AuthHandlers.RefreshHandler).Methods("POST")
 
-	//Resources
+	// Resources
 	r.HandleFunc("/api/cities", authMiddleware(s.ResourceHandlers.GetAllCitiesHandler)).Methods("GET")
 	r.HandleFunc("/api/countries", authMiddleware(s.ResourceHandlers.GetAllCountriesHandler)).Methods("GET")
 	r.HandleFunc("/api/attractions", authMiddleware(s.ResourceHandlers.GetAllAttractionssHandler)).Methods("GET")
@@ -60,7 +65,7 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/restaurants", authMiddleware(s.ResourceHandlers.GetAllRestaurantssHandler)).Methods("GET")
 	r.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler)).Methods("GET")
 
-	//review
+	// Review
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler)).Methods("POST")
 
 	// Trips
@@ -77,7 +82,7 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
 
 	slog.Info("Routes registered successfully")
-
+	fmt.Printf("Prometheus metrics available at http://localhost%s/metrics\n", port)
 	fmt.Printf("Swagger UI available at http://localhost%s/swagger/index.html\n", port)
 
 	if err := http.ListenAndServe(port, r); err != nil {

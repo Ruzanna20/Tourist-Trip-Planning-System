@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s 
+
+scrape_configs:
+  - job_name: 'tourist-backend'
+    static_configs:
+      - targets: ['travel_backend:8080'] 
