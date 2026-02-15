@@ -22,7 +22,6 @@ type DataSeeder struct {
 	hotelAPIService      *HotelAPIService
 	restaurantAPIService *RestaurantAPIService
 	flightAPIService     *FlightAPIService
-	googleAPIService     *GoogleService
 }
 
 func NewDataSeeder(
@@ -38,7 +37,6 @@ func NewDataSeeder(
 	hotelAPIService *HotelAPIService,
 	restaurantAPIService *RestaurantAPIService,
 	flightAPIService *FlightAPIService,
-	googleAPIService *GoogleService,
 ) *DataSeeder {
 	return &DataSeeder{
 		countryRepo:          countryRepo,
@@ -53,7 +51,6 @@ func NewDataSeeder(
 		hotelAPIService:      hotelAPIService,
 		restaurantAPIService: restaurantAPIService,
 		flightAPIService:     flightAPIService,
-		googleAPIService:     googleAPIService,
 	}
 }
 
@@ -159,7 +156,7 @@ func (s *DataSeeder) SeedHotels() error {
 				continue
 			}
 		}
-		time.Sleep(1500 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 	}
 	slog.Info("Hotels seeding process completed")
 	return nil

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	"travel-planning/internal/kafka"
 	"travel-planning/models"
 	"travel-planning/repository"
 )
@@ -23,6 +25,8 @@ type TripPlanningService struct {
 	RestaurantRepo *repository.RestaurantRepository
 
 	UserPreferencesRepo *repository.UserPreferencesRepository
+
+	KafkaProducer *kafka.Producer
 }
 
 func NewTripPlanningService(
@@ -33,7 +37,8 @@ func NewTripPlanningService(
 	hotelRepo *repository.HotelRepository,
 	attractionRepo *repository.AttractionRepository,
 	restaurantRepo *repository.RestaurantRepository,
-	userPreferencesRepo *repository.UserPreferencesRepository) *TripPlanningService {
+	userPreferencesRepo *repository.UserPreferencesRepository,
+	KafkaProducer *kafka.Producer) *TripPlanningService {
 	return &TripPlanningService{
 		TripRepo:                tripRepo,
 		ItineraryRepo:           itineraryRepo,
@@ -43,6 +48,7 @@ func NewTripPlanningService(
 		AttractionRepo:          attractionRepo,
 		RestaurantRepo:          restaurantRepo,
 		UserPreferencesRepo:     userPreferencesRepo,
+		KafkaProducer:           KafkaProducer,
 	}
 }
 
@@ -133,6 +139,20 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		return 0, fmt.Errorf("end date must be after start date")
 	}
 
+	tempTrip := &models.Trip{
+		UserID:            userID,
+		StartDate:         startDate,
+		EndDate:           endDate,
+		DestinationCityID: req.ToCityID,
+		TotalPrice:        req.BudgetAmount,
+	}
+
+	options, err := s.GenerateOptions(tempTrip)
+	if err != nil || len(options) == 0 {
+		l.Warn("Trip planning aborted: no feasible options found within budget", "error", err)
+		return 0, fmt.Errorf("cannot plan trip: no options found for this budget and destination")
+	}
+
 	tx, err := s.TripRepo.GetConn().Begin()
 	if err != nil {
 		l.Error("Failed to start transaction", "error", err)
@@ -146,6 +166,7 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		StartDate:         startDate,
 		EndDate:           endDate,
 		DestinationCityID: req.ToCityID,
+		TotalPrice:        req.BudgetAmount,
 		Status:            "Planned",
 	}
 
@@ -179,7 +200,10 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		l.Error("Failed to commit transaction", "error", err)
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	l.Info("Trip planning transaction committed successfully", "trip_id", tripID)
+	if s.KafkaProducer != nil {
+		go s.KafkaProducer.PublishTripReques(context.Background(), tripID, userID, req.ToCityID)
+	}
+
 	return tripID, nil
 }
 
@@ -433,4 +457,8 @@ func (s *TripPlanningService) FinalizeTripPlan(tripID int, tier string, hotelID 
 
 	l.Info("Trip finalized and saved successfully")
 	return nil
+}
+
+func (s *TripPlanningService) GetTripByID(id int) (*models.Trip, error) {
+	return s.TripRepo.GetTripByID(id)
 }

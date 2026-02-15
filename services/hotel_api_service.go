@@ -13,131 +13,140 @@ import (
 	"travel-planning/models"
 )
 
+const hotelAPIURL = "https://overpass-api.de/api/interpreter"
+const hotelLimit = 10
+const searchRadiusKm = 20
+
 type HotelAPIService struct {
-	amadeus        *AmadeusService
-	googleService  *GoogleService
-	searchRadiusKm int
+	client *http.Client
 }
 
-func NewHotelAPIService(amadeus *AmadeusService, googleService *GoogleService) *HotelAPIService {
+func NewHotelAPIService() *HotelAPIService {
 	return &HotelAPIService{
-		amadeus:        amadeus,
-		googleService:  googleService,
-		searchRadiusKm: 10,
+		client: &http.Client{Timeout: 45 * time.Second},
 	}
 }
 
-type HotelSearchResponse struct {
-	Data []struct {
-		HotelID   string  `json:"hotelId"`
-		Name      string  `json:"name"`
-		Latitude  float64 `json:"latitude"`
-		Longitude float64 `json:"longitude"`
-		Address   struct {
-			Lines    []string `json:"lines"`
-			CityName string   `json:"cityName"`
-		} `json:"address"`
-		Price struct {
-			Currency string `json:"currency"`
-			Total    string `json:"total"`
-		} `json:"price"`
-	} `json:"data"`
-	Errors []interface{} `json:"errors"`
+type OverpassHotelResponse struct {
+	Elements []struct {
+		Lat  float64           `json:"lat"`
+		Lon  float64           `json:"lon"`
+		Tags map[string]string `json:"tags"`
+	} `json:"elements"`
 }
 
-func (s *HotelAPIService) SearchHotelsByGeo(lat, lon float64, radiusKm int) (*HotelSearchResponse, error) {
-	l := slog.With("lat", lat, "lon", lon, "radius", radiusKm)
-	l.Debug("Searching hotels by geocode via Amadeus")
+func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*models.Hotel, error) {
+	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
+	l.Info("Fetching hotels from Overpass API")
 
-	endpoint := "/v1/reference-data/locations/hotels/by-geocode"
+	query := fmt.Sprintf(`
+		[out:json][timeout:90];
+		(
+		  node["tourism"="hotel"](around:20000,%[1]f,%[2]f);
+		  way["tourism"="hotel"](around:20000,%[1]f,%[2]f);
+		);
+		out center %d;`, lat, lon, hotelLimit)
 
-	params := url.Values{}
-	params.Add("latitude", strconv.FormatFloat(lat, 'f', 6, 64))
-	params.Add("longitude", strconv.FormatFloat(lon, 'f', 6, 64))
-	params.Add("radius", fmt.Sprintf("%d", radiusKm))
-	params.Add("radiusUnit", "KM")
+	data := url.Values{}
+	data.Set("data", query)
 
-	resp, err := s.amadeus.ExecuteGetRequest(endpoint, params)
+	resp, err := s.client.Post(
+		hotelAPIURL,
+		"application/x-www-form-urlencoded",
+		strings.NewReader(data.Encode()),
+	)
+
 	if err != nil {
-		l.Error("Amadeus request failed", "error", err)
+		l.Error("Overpass request failed", "error", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		l.Warn("Amadeus returned non-OK status", "status", resp.StatusCode)
-		return nil, fmt.Errorf("API request failed: %d", resp.StatusCode)
+		return nil, fmt.Errorf("overpass API error: %d", resp.StatusCode)
 	}
 
-	var apihotels HotelSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apihotels); err != nil {
-		l.Error("Failed to decode Amadeus response", "error", err)
-		return nil, fmt.Errorf("failed to decode API response: %w", err)
-	}
-
-	if len(apihotels.Errors) > 0 {
-		l.Error("Amadeus API reported data errors", "errors", apihotels.Errors)
-		return nil, fmt.Errorf("amadeus API reported data errors")
-	}
-
-	l.Info("Successfully fetched hotels from Amadeus", "count", len(apihotels.Data))
-	return &apihotels, nil
-}
-
-func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*models.Hotel, error) {
-	l := slog.With("city_id", cityID)
-	l.Info("Starting hotel fetch and enrichment process")
-
-	resp, err := s.SearchHotelsByGeo(lat, lon, s.searchRadiusKm)
-	if err != nil {
+	var osmResp OverpassHotelResponse
+	if err := json.NewDecoder(resp.Body).Decode(&osmResp); err != nil {
 		return nil, err
 	}
 
-	if resp == nil || len(resp.Data) == 0 {
-		l.Warn("No hotels found in this area")
-		return nil, nil
-	}
-
 	var hotels []*models.Hotel
-	for _, hotel := range resp.Data {
-		hl := l.With("hotel_name", hotel.Name)
-		hl.Debug("Enriching hotel data via Google")
-
-		enrichedData, err := s.googleService.EnrichHotelData(hotel.Name, hotel.Address.CityName)
-		if err != nil {
-			hl.Debug("Google enrichment failed or skipped", "error", err)
+	for _, el := range osmResp.Elements {
+		name := el.Tags["name"]
+		if name == "" {
 			continue
 		}
 
-		if enrichedData == nil || enrichedData.Rating == 0 || enrichedData.Phone == "" || enrichedData.Description == "" {
-			hl.Debug("Skipping hotel: incomplete enriched data",
-				"has_rating", enrichedData != nil && enrichedData.Rating != 0,
-				"has_phone", enrichedData != nil && enrichedData.Phone != "",
-				"has_desc", enrichedData != nil && enrichedData.Description != "")
-			continue
+		stars, _ := strconv.Atoi(el.Tags["stars"])
+		if stars == 0 {
+			stars = 3 + rand.IntN(3)
 		}
 
-		price := 65.0 + rand.Float64()*100.0
-		stars := int(enrichedData.Rating)
+		rating := float64(stars) + rand.Float64()*5.0
+		price := 50.0 + rand.Float64()*150.0
+
+		cityName := el.Tags["addr:city"]
+		street := el.Tags["addr:street"]
+		address := fmt.Sprintf("%s, %s %s", name, street, cityName)
+		address = strings.Trim(address, ", ")
+		if street == "" && cityName == "" {
+			address = name + ", Local Area"
+		}
+
+		website := el.Tags["contact:website"]
+		if website == "" {
+			website = el.Tags["website"]
+		}
+		if website == "" {
+			cleanName := strings.ToLower(strings.ReplaceAll(name, " ", ""))
+			website = fmt.Sprintf("https://www.%s.com", cleanName)
+		}
+
+		var amenities []string
+
+		if el.Tags["internet_access"] != "" || el.Tags["wifi"] != "" {
+			amenities = append(amenities, "Free Wi-Fi")
+		}
+		if el.Tags["swimming_pool"] == "yes" {
+			amenities = append(amenities, "Swimming Pool")
+		}
+		if el.Tags["parking"] == "yes" {
+			amenities = append(amenities, "Private Parking")
+		}
+		if el.Tags["air_conditioning"] == "yes" {
+			amenities = append(amenities, "Air Conditioning")
+		}
+		if el.Tags["wheelchair"] == "yes" {
+			amenities = append(amenities, "Wheelchair Accessible")
+		}
+
+		description := el.Tags["description"]
+		if description == "" {
+			amenitiesText := ""
+			if len(amenities) > 0 {
+				amenitiesText = " Features: " + strings.Join(amenities, ", ") + "."
+			}
+			description = fmt.Sprintf("A wonderful stay at %s. %s ", name, amenitiesText)
+		}
 
 		newHotel := &models.Hotel{
 			CityID:        cityID,
-			Name:          hotel.Name,
-			Address:       strings.Join(hotel.Address.Lines, ", ") + ", " + hotel.Address.CityName,
+			Name:          name,
+			Address:       address,
 			Stars:         stars,
-			Rating:        enrichedData.Rating,
+			Rating:        rating,
 			PricePerNight: price,
-			Phone:         enrichedData.Phone,
-			Website:       enrichedData.Website,
-			ImageURL:      enrichedData.Photo,
-			Description:   enrichedData.Description,
+			Phone:         el.Tags["contact:phone"],
+			Website:       website,
+			Description:   description,
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 		}
+
 		hotels = append(hotels, newHotel)
-		hl.Debug("Hotel successfully enriched and added")
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	l.Info("Hotel fetch and enrichment completed", "total_added", len(hotels))
 	return hotels, nil
 }

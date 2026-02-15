@@ -12,7 +12,6 @@ type Hotel struct {
 	PricePerNight float64   `json:"price_per_night" db:"price_per_night"`
 	Phone         string    `json:"phone" db:"phone"`
 	Website       string    `json:"website" db:"website"`
-	ImageURL      string    `json:"image_url" db:"image_url"`
 	Description   string    `json:"description" db:"description"`
 	CreatedAt     time.Time `json:"-" db:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`

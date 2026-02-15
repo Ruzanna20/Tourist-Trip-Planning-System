@@ -19,9 +19,9 @@ func NewHotelRepository(db *sql.DB) *HotelRepository {
 func (r *HotelRepository) Upsert(hotel *models.Hotel) (int, error) {
 	query := `INSERT INTO hotels (
         city_id, name, address, stars, rating, price_per_night,
-        phone, website, image_url, description, 
+        phone, website, description, 
         created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (name, city_id) DO UPDATE 
         SET 
             address = EXCLUDED.address,
@@ -29,7 +29,6 @@ func (r *HotelRepository) Upsert(hotel *models.Hotel) (int, error) {
             rating = EXCLUDED.rating,
             price_per_night = EXCLUDED.price_per_night,
             description = EXCLUDED.description,
-            image_url = EXCLUDED.image_url,
             phone = COALESCE(EXCLUDED.phone, hotels.phone), 
             website = COALESCE(EXCLUDED.website,hotels.website),
             updated_at = NOW() AT TIME ZONE 'Asia/Yerevan'
@@ -54,7 +53,6 @@ func (r *HotelRepository) Upsert(hotel *models.Hotel) (int, error) {
 		hotel.PricePerNight,
 		hotel.Phone,
 		hotel.Website,
-		hotel.ImageURL,
 		hotel.Description,
 		hotel.CreatedAt,
 		hotel.UpdatedAt,
@@ -76,7 +74,7 @@ func (r *HotelRepository) Upsert(hotel *models.Hotel) (int, error) {
 func (r *HotelRepository) GetAllHotels() ([]models.Hotel, error) {
 	query := `SELECT 
                 hotel_id, city_id, name, address, stars, rating, price_per_night, 
-                phone, website, image_url, description, 
+                phone, website, description, 
                 created_at, updated_at
               FROM hotels;`
 
@@ -92,12 +90,12 @@ func (r *HotelRepository) GetAllHotels() ([]models.Hotel, error) {
 		var h models.Hotel
 		var starsSql sql.NullInt32
 		var ratingSql, priceSql sql.NullFloat64
-		var phoneSql, websiteSql, imageUrlSql, descriptionSql sql.NullString
+		var phoneSql, websiteSql, descriptionSql sql.NullString
 
 		if err := rows.Scan(
 			&h.HotelID, &h.CityID, &h.Name, &h.Address,
 			&starsSql, &ratingSql, &priceSql, &phoneSql,
-			&websiteSql, &imageUrlSql, &descriptionSql, &h.CreatedAt, &h.UpdatedAt,
+			&websiteSql, &descriptionSql, &h.CreatedAt, &h.UpdatedAt,
 		); err != nil {
 			slog.Warn("Error scanning hotel row", "error", err)
 			continue
@@ -108,7 +106,6 @@ func (r *HotelRepository) GetAllHotels() ([]models.Hotel, error) {
 		h.PricePerNight = priceSql.Float64
 		h.Phone = phoneSql.String
 		h.Website = websiteSql.String
-		h.ImageURL = imageUrlSql.String
 		h.Description = descriptionSql.String
 		hotels = append(hotels, h)
 	}
@@ -138,7 +135,7 @@ func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier
 	query := fmt.Sprintf(`
     SELECT 
         hotel_id, city_id, name, address, stars, rating, price_per_night, 
-        phone, website, image_url, description
+        phone, website, description
     FROM hotels 
     WHERE city_id = $1 AND price_per_night <= $2  %s
     ORDER BY %s
@@ -154,7 +151,6 @@ func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier
 		&hotel.PricePerNight,
 		&hotel.Phone,
 		&hotel.Website,
-		&hotel.ImageURL,
 		&hotel.Description,
 	)
 

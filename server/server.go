@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -82,8 +81,6 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
 
 	slog.Info("Routes registered successfully")
-	fmt.Printf("Prometheus metrics available at http://localhost%s/metrics\n", port)
-	fmt.Printf("Swagger UI available at http://localhost%s/swagger/index.html\n", port)
 
 	if err := http.ListenAndServe(port, r); err != nil {
 		slog.Error("Server failed to start", "error", err)

@@ -15,14 +15,12 @@ import (
 const AttractionAPIUrl = "https://overpass-api.de/api/interpreter"
 
 type AttractionAPIService struct {
-	client         *http.Client
-	searchRadiusKm int
+	client *http.Client
 }
 
 func NewAttractionAPIService() *AttractionAPIService {
 	return &AttractionAPIService{
-		client:         &http.Client{Timeout: 90 * time.Second},
-		searchRadiusKm: 15,
+		client: &http.Client{Timeout: 90 * time.Second},
 	}
 }
 

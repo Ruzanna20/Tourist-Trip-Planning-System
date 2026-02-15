@@ -15,14 +15,12 @@ import (
 const restaurantAPIUrl = "https://overpass-api.de/api/interpreter"
 
 type RestaurantAPIService struct {
-	client         *http.Client
-	searchRadiusKm int
+	client *http.Client
 }
 
 func NewRestaurantAPIService() *RestaurantAPIService {
 	return &RestaurantAPIService{
-		client:         &http.Client{Timeout: 60 * time.Second},
-		searchRadiusKm: 10,
+		client: &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -38,6 +36,8 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
 	l.Info("Fetching restaurants from Overpass API")
 
+	searchRadiusM := searchRadiusKm * 1000
+
 	query := fmt.Sprintf(`
 		[out:json][timeout:90];
 		(
@@ -51,7 +51,14 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 		  way["amenity"="bar"](around:%d, %.6f, %.6f);
 		);
 		out center 50; 
-	`, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*10000, lat, lon, s.searchRadiusKm*5000, lat, lon)
+	`, searchRadiusM, lat, lon,
+		searchRadiusM, lat, lon,
+		searchRadiusM, lat, lon,
+		searchRadiusM, lat, lon,
+		searchRadiusM, lat, lon,
+		searchRadiusM, lat, lon,
+		searchRadiusM, lat, lon,
+		searchRadiusM, lat, lon)
 
 	data := url.Values{}
 	data.Set("data", query)
@@ -65,7 +72,7 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 
 	if err != nil {
 		l.Error("Overpass Restaurant API request failed", "error", err)
-		return nil, fmt.Errorf("failed to make overpass API request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -79,7 +86,7 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 	var apirestaurants RestaurantAPIResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apirestaurants); err != nil {
 		l.Error("Failed to decode Restaurant JSON", "error", err)
-		return nil, fmt.Errorf("failed to decode API response: %w", err)
+		return nil, err
 	}
 
 	var restaurants []*models.Restaurant

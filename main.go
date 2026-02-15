@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
 
 	"travel-planning/database"
 	"travel-planning/handlers"
+	"travel-planning/internal/kafka"
 	"travel-planning/server"
 
 	"travel-planning/repository"
@@ -73,8 +75,7 @@ func main() {
 	countryAPIService := services.NewCountryAPIService()
 	cityAPIService := services.NewCityAPIService()
 	attractionAPIService := services.NewAttractionAPIService()
-	googleAPIService := services.NewGoogleService()
-	hotelAPIService := services.NewHotelAPIService(amadeusService, googleAPIService)
+	hotelAPIService := services.NewHotelAPIService()
 	restaurantAPIService := services.NewRestaurantAPIService()
 	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo)
 
@@ -89,6 +90,10 @@ func main() {
 	userService := services.NewUserService(userRepo, userPreferencesRepo)
 	resourceService := services.NewResourceService(hotelRepo, cityRepo, attractionRepo, countryRepo, restaurantRepo, flightRepo)
 	reviewService := services.NewReviewService(reviewRepo)
+
+	kafkaProducer := kafka.NewProducer("kafka:9092")
+	defer kafkaProducer.Close()
+
 	tripPlanningService := services.NewTripPlanningService(
 		tripRepo,
 		itineraryRepo,
@@ -97,7 +102,12 @@ func main() {
 		hotelRepo,
 		attractionRepo,
 		restaurantRepo,
-		userPreferencesRepo)
+		userPreferencesRepo, kafkaProducer)
+
+	kafkaConsumer := kafka.NewConsumer([]string{"kafka:9092"}, "trip-requests", "trip-service-group", tripPlanningService)
+	defer kafkaConsumer.Close()
+
+	go kafkaConsumer.Start(context.Background())
 
 	seeder := services.NewDataSeeder(
 		countryRepo,
@@ -111,8 +121,7 @@ func main() {
 		attractionAPIService,
 		hotelAPIService,
 		restaurantAPIService,
-		flightAPIService,
-		googleAPIService)
+		flightAPIService)
 
 	if *seedFlag {
 		slog.Info("Starting Seeding Job")
@@ -140,17 +149,17 @@ func main() {
 		// 	os.Exit(1)
 		// }
 
-		// //restaurant
-		// if err = seeder.SeedRestaurants(); err != nil {
-		// 	slog.Error("CRITICAL: Restaurant Seeding failed", "error", err)
-		// 	os.Exit(1)
-		// }
-
-		//flight
-		if err = seeder.SeedFlights(); err != nil {
-			slog.Error("CRITICAL: Flight Seeding failed", "error", err)
+		//restaurant
+		if err = seeder.SeedRestaurants(); err != nil {
+			slog.Error("CRITICAL: Restaurant Seeding failed", "error", err)
 			os.Exit(1)
 		}
+
+		// //flight
+		// if err = seeder.SeedFlights(); err != nil {
+		// 	slog.Error("CRITICAL: Flight Seeding failed", "error", err)
+		// 	os.Exit(1)
+		// }
 
 		slog.Info("Seeding Job finished successfully")
 		return
