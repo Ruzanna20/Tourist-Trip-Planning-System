@@ -27,12 +27,6 @@ func NewResourceHandlers(resourceHandlers *services.ResourceService) *ResourceHa
 func (h *ResourceHandlers) GetAllCountriesHandler(w http.ResponseWriter, r *http.Request) {
 	l := slog.With("endpoint", "GetAllCountries", "method", r.Method)
 
-	if r.Method != http.MethodGet {
-		l.Warn("Method not allowed")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	countries, err := h.ResourceService.GetAllCountries()
 	if err != nil {
 		l.Error("Service error", "error", err)
@@ -57,12 +51,6 @@ func (h *ResourceHandlers) GetAllCountriesHandler(w http.ResponseWriter, r *http
 // @Router /api/cities [get]
 func (h *ResourceHandlers) GetAllCitiesHandler(w http.ResponseWriter, r *http.Request) {
 	l := slog.With("endpoint", "GetAllCities", "method", r.Method)
-
-	if r.Method != http.MethodGet {
-		l.Warn("Method not allowed")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	cities, err := h.ResourceService.GetAllCities()
 	if err != nil {
@@ -90,12 +78,6 @@ func (h *ResourceHandlers) GetAllCitiesHandler(w http.ResponseWriter, r *http.Re
 func (h *ResourceHandlers) GetAllAttractionssHandler(w http.ResponseWriter, r *http.Request) {
 	l := slog.With("endpoint", "GetAllAttractions", "method", r.Method)
 
-	if r.Method != http.MethodGet {
-		l.Warn("Method not allowed")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	attractions, err := h.ResourceService.GetAllAttractions()
 	if err != nil {
 		l.Error("Service error", "error", err)
@@ -121,12 +103,6 @@ func (h *ResourceHandlers) GetAllAttractionssHandler(w http.ResponseWriter, r *h
 // @Router /api/hotels [get]
 func (h *ResourceHandlers) GetAllHotelsHandler(w http.ResponseWriter, r *http.Request) {
 	l := slog.With("endpoint", "GetAllHotels", "method", r.Method)
-
-	if r.Method != http.MethodGet {
-		l.Warn("Method not allowed")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	hotels, err := h.ResourceService.GetAllHotels()
 	if err != nil {
@@ -154,12 +130,6 @@ func (h *ResourceHandlers) GetAllHotelsHandler(w http.ResponseWriter, r *http.Re
 func (h *ResourceHandlers) GetAllRestaurantssHandler(w http.ResponseWriter, r *http.Request) {
 	l := slog.With("endpoint", "GetAllRestaurants", "method", r.Method)
 
-	if r.Method != http.MethodGet {
-		l.Warn("Method not allowed")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	restaurants, err := h.ResourceService.GetAllRestaurants()
 	if err != nil {
 		l.Error("Service error", "error", err)
@@ -185,12 +155,6 @@ func (h *ResourceHandlers) GetAllRestaurantssHandler(w http.ResponseWriter, r *h
 // @Router /api/flights [get]
 func (h *ResourceHandlers) GetAllFlightsHandler(w http.ResponseWriter, r *http.Request) {
 	l := slog.With("endpoint", "GetAllFlights", "method", r.Method)
-
-	if r.Method != http.MethodGet {
-		l.Warn("Method not allowed")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	flights, err := h.ResourceService.GetAllFlights()
 	if err != nil {

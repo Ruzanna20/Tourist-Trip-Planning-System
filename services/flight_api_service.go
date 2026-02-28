@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"travel-planning/internal/cache"
 	"travel-planning/models"
 	"travel-planning/repository"
 )
@@ -16,12 +18,17 @@ import (
 type FlightAPIService struct {
 	amadeus  *AmadeusService
 	cityRepo *repository.CityRepository
+	cache    *cache.RedisCache
 }
 
-func NewFlightAPIService(amadeus *AmadeusService, cityRepo *repository.CityRepository) *FlightAPIService {
+func NewFlightAPIService(
+	amadeus *AmadeusService,
+	cityRepo *repository.CityRepository,
+	cache *cache.RedisCache) *FlightAPIService {
 	return &FlightAPIService{
 		amadeus:  amadeus,
 		cityRepo: cityRepo,
+		cache:    cache,
 	}
 }
 
@@ -133,7 +140,17 @@ type FlightSearchResponse struct {
 }
 
 func (s *FlightAPIService) FindBestFlightOffer(fromCityIata, toCityIata string) (*models.Flight, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("flights:%s,%s", fromCityIata, toCityIata)
 	l := slog.With("from", fromCityIata, "to", toCityIata)
+
+	var cachedFlights *models.Flight
+	err := s.cache.Get(ctx, cacheKey, &cachedFlights)
+	if err == nil {
+		l.Info("Flight offer retrieved from cache")
+		return cachedFlights, nil
+	}
+
 	l.Info("Searching for best flight offer")
 
 	departureDate := time.Now().Add(30 * 24 * time.Hour).Format("2006-01-02")
@@ -181,10 +198,18 @@ func (s *FlightAPIService) FindBestFlightOffer(fromCityIata, toCityIata string) 
 	duration, _ := time.ParseDuration(strings.ToLower(durationStr))
 	durationMinutes := int(duration.Minutes())
 
-	return &models.Flight{
+	flightResult := &models.Flight{
 		Airline:         bestFlight.Itineraries[0].Segments[0].CarrierCode,
 		DurationMinutes: durationMinutes,
 		Price:           totalPrice,
 		Website:         "Amadeus.com",
-	}, nil
+	}
+
+	err = s.cache.Set(ctx, cacheKey, flightResult, 24*time.Hour)
+	if err != nil {
+		l.Error("Failed to save flight to cache", "error", err)
+	}
+
+	return flightResult, nil
+
 }

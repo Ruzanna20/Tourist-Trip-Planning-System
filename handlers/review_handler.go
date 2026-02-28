@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"travel-planning/models"
 	"travel-planning/services"
+
+	"github.com/gorilla/mux"
 )
 
 type ReviewHandlers struct {
@@ -33,12 +35,6 @@ func (h *ReviewHandlers) CreateReviewHandler(w http.ResponseWriter, r *http.Requ
 	userIDStr := r.Header.Get("X-User-ID")
 	userID, err := strconv.Atoi(userIDStr)
 	l := slog.With("user_id", userID, "path", r.URL.Path, "method", r.Method)
-
-	if r.Method != http.MethodPost {
-		l.Warn("Method not allowed")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	if err != nil && userID <= 0 {
 		l.Error("Unauthorized access attempt: invalid User ID")
@@ -69,4 +65,63 @@ func (h *ReviewHandlers) CreateReviewHandler(w http.ResponseWriter, r *http.Requ
 		"review_id": reviewID,
 	})
 
+}
+
+// GetUserReviewsHandler godoc
+// @Summary Get all reviews submitted by the authenticated user
+// @Security BearerAuth
+// @Tags Reviews
+// @Produce json
+// @Success 200 {array} models.Review
+// @Router /api/reviews [get]
+func (h *ReviewHandlers) GetUserReviewsHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	l := slog.With("user_id", userID, "path", r.URL.Path)
+
+	if err != nil || userID <= 0 {
+		l.Error("Unauthorized access attempt: invalid User ID")
+		http.Error(w, "Authentication error: Invalid User ID", http.StatusUnauthorized)
+		return
+	}
+
+	reviews, err := h.ReviewService.GetUserReviews(userID)
+	if err != nil {
+		l.Error("Failed to fetch user reviews", "error", err)
+		http.Error(w, "Error fetching reviews", http.StatusInternalServerError)
+		return
+	}
+
+	l.Debug("Fetched reviews for user", "count", len(reviews))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(reviews)
+}
+
+// DeleteReviewHandler godoc
+// @Summary Delete a review
+// @Security BearerAuth
+// @Tags Reviews
+// @Param id path int true "Review ID"
+// @Success 204 "No Content"
+// @Router /api/reviews/{id} [delete]
+func (h *ReviewHandlers) DeleteReviewHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	reviewID, err := strconv.Atoi(vars["id"])
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, _ := strconv.Atoi(userIDStr)
+
+	if err != nil {
+		http.Error(w, "Invalid review ID", http.StatusBadRequest)
+		return
+	}
+
+	err = h.ReviewService.DeleteReview(reviewID, userID)
+	if err != nil {
+		slog.Error("Failed to delete review", "review_id", reviewID, "error", err)
+		http.Error(w, "Failed to delete review: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("Review deleted", "review_id", reviewID, "user_id", userID)
+	w.WriteHeader(http.StatusNoContent)
 }

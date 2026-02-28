@@ -20,7 +20,7 @@ type JWTService struct {
 	expiry    time.Duration
 }
 
-func NewJWTService(jwtSecret string, expiryMinutesStr string) *JWTService {
+func NewJWTService(jwtSecret string) *JWTService {
 	return &JWTService{
 		secretKey: []byte(jwtSecret),
 		expiry:    24 * time.Hour,

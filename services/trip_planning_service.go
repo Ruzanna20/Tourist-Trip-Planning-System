@@ -52,7 +52,12 @@ func NewTripPlanningService(
 	}
 }
 
-func (s *TripPlanningService) GenerateOptions(trip *models.Trip) ([]models.TripOption, error) {
+func (s *TripPlanningService) GenerateOptions(tripID int) ([]models.TripOption, error) {
+	trip, err := s.TripRepo.GetTripByID(tripID)
+	if err != nil {
+		return nil, fmt.Errorf("trip not found: %w", err)
+	}
+
 	prefs, err := s.UserPreferencesRepo.GetByUserID(trip.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("could not find user home city: %v", err)
@@ -137,20 +142,6 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 	if duration <= 0 {
 		l.Warn("Invalid trip duration", "duration_days", duration)
 		return 0, fmt.Errorf("end date must be after start date")
-	}
-
-	tempTrip := &models.Trip{
-		UserID:            userID,
-		StartDate:         startDate,
-		EndDate:           endDate,
-		DestinationCityID: req.ToCityID,
-		TotalPrice:        req.BudgetAmount,
-	}
-
-	options, err := s.GenerateOptions(tempTrip)
-	if err != nil || len(options) == 0 {
-		l.Warn("Trip planning aborted: no feasible options found within budget", "error", err)
-		return 0, fmt.Errorf("cannot plan trip: no options found for this budget and destination")
 	}
 
 	tx, err := s.TripRepo.GetConn().Begin()
@@ -319,20 +310,29 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 func (s *TripPlanningService) saveActivity(tx *sql.Tx, itineraryID int64, aType string, entityID int, order int, allAttractions []models.Attraction, dayDate time.Time) {
 	aType = strings.ToLower(aType)
 
+	year, month, day := dayDate.Date()
+	location := dayDate.Location()
+
 	var startTime, endTime time.Time
 	switch order {
-	case 0, 1:
-		startTime = time.Date(dayDate.Year(), dayDate.Month(), dayDate.Day(), 10, 0, 0, 0, dayDate.Location())
+	case 0:
+		startTime = time.Date(year, month, day, 9, 0, 0, 0, location)
 		endTime = startTime.Add(2 * time.Hour)
-	case 2:
-		startTime = time.Date(dayDate.Year(), dayDate.Month(), dayDate.Day(), 13, 0, 0, 0, dayDate.Location())
+	case 1:
+		startTime = time.Date(year, month, day, 11, 30, 0, 0, location)
 		endTime = startTime.Add(1*time.Hour + 30*time.Minute)
-	case 3, 4:
-		startTime = time.Date(dayDate.Year(), dayDate.Month(), dayDate.Day(), 17, 0, 0, 0, dayDate.Location())
+	case 2:
+		startTime = time.Date(year, month, day, 14, 0, 0, 0, location)
+		endTime = startTime.Add(1 * time.Hour)
+	case 3:
+		startTime = time.Date(year, month, day, 16, 0, 0, 0, location)
+		endTime = startTime.Add(2 * time.Hour)
+	case 4:
+		startTime = time.Date(year, month, day, 19, 0, 0, 0, location)
 		endTime = startTime.Add(2 * time.Hour)
 	default:
-		startTime = dayDate
-		endTime = dayDate.Add(2 * time.Hour)
+		startTime = time.Date(year, month, day, 21, 0, 0, 0, location)
+		endTime = startTime.Add(1 * time.Hour)
 	}
 
 	activity := &models.ItineraryActivity{
@@ -461,4 +461,20 @@ func (s *TripPlanningService) FinalizeTripPlan(tripID int, tier string, hotelID 
 
 func (s *TripPlanningService) GetTripByID(id int) (*models.Trip, error) {
 	return s.TripRepo.GetTripByID(id)
+}
+
+func (s *TripPlanningService) GetUserTrips(userID int) ([]models.Trip, error) {
+	return s.TripRepo.GetAllTripsByUserID(userID)
+}
+
+func (s *TripPlanningService) GetItineraryDays(tripID int) ([]*models.TripItinerary, error) {
+	return s.ItineraryRepo.GetItineraryDaysByTripID(tripID)
+}
+
+func (s *TripPlanningService) GetActivitiesByDay(itineraryID int) ([]*models.ItineraryActivity, error) {
+	return s.ItineraryActivitiesRepo.GetActivitiesByItineraryID(itineraryID)
+}
+
+func (s *TripPlanningService) DeleteUserTrip(tripID, userID int) error {
+	return s.TripRepo.DeleteByIDAndUserID(tripID, userID)
 }

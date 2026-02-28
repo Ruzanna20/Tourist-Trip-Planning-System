@@ -17,5 +17,10 @@ type ItineraryActivity struct {
 	StartTime    time.Time     `json:"start_time" db:"start_time"`
 	EndTime      time.Time     `json:"end_time" db:"end_time"`
 	Notes        string        `json:"notes" db:"notes"`
-	CreatedAt    time.Time     `json:"created_at" db:"created_at"`
+
+	EntityName   string    `json:"entity_name"`
+	EntityDetail string    `json:"entity_detail"`
+	EntityExtra  string    `json:"entity_extra"`
+	EntityRating float64   `json:"entity_rating"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }

@@ -58,13 +58,54 @@ func (r *ItineraryActivitiesRepository) Insert(tx *sql.Tx, activity *models.Itin
 }
 
 func (r *ItineraryActivitiesRepository) GetActivitiesByItineraryID(itineraryID int) ([]*models.ItineraryActivity, error) {
-	query := `SELECT 
-	            activity_id, itinerary_id, activity_type, hotel_id, attraction_id, 
-	            restaurant_id, flight_id, order_number, start_time, end_time, 
-	            notes, created_at
-	          FROM itinerary_activities 
-	          WHERE itinerary_id = $1
-			  ORDER BY order_number ASC`
+	query := `
+		SELECT
+			ia.activity_id,
+            ia.itinerary_id,
+            ia.activity_type,
+            ia.hotel_id,
+            ia.attraction_id,
+            ia.restaurant_id,
+            ia.flight_id,
+            ia.order_number,
+            ia.start_time,
+            ia.end_time,
+            ia.notes,
+            ia.created_at,
+			CASE
+				WHEN ia.activity_type = 'hotel'      THEN COALESCE(h.name, '')
+				WHEN ia.activity_type = 'attraction' THEN COALESCE(a.name, '')
+				WHEN ia.activity_type = 'restaurant' THEN COALESCE(r.name, '')
+				WHEN ia.activity_type = 'flight'     THEN COALESCE(f.airline, '')
+				ELSE ''
+			END AS entity_name,
+			CASE
+				WHEN ia.activity_type = 'hotel'      THEN COALESCE(h.address, '')
+				WHEN ia.activity_type = 'attraction' THEN COALESCE(a.category, '')
+				WHEN ia.activity_type = 'restaurant' THEN COALESCE(r.cuisine, '')
+				WHEN ia.activity_type = 'flight'     THEN COALESCE(CAST(f.duration_minutes AS TEXT) || ' min', '')
+				ELSE ''
+			END AS entity_detail,
+			CASE
+				WHEN ia.activity_type = 'hotel'      THEN COALESCE(h.description, '')
+				WHEN ia.activity_type = 'attraction' THEN COALESCE(CAST(a.entry_fee AS TEXT), '')
+				WHEN ia.activity_type = 'restaurant' THEN COALESCE(r.price_range, '')
+				WHEN ia.activity_type = 'flight'     THEN COALESCE(CAST(f.price AS TEXT), '')
+				ELSE ''
+			END AS entity_extra,
+			CASE
+				WHEN ia.activity_type = 'hotel'      THEN COALESCE(h.rating, 0)
+				WHEN ia.activity_type = 'attraction' THEN COALESCE(a.rating, 0)
+				WHEN ia.activity_type = 'restaurant' THEN COALESCE(r.rating, 0)
+				ELSE 0
+			END AS entity_rating
+		FROM itinerary_activities ia
+		LEFT JOIN hotels      h ON ia.hotel_id      = h.hotel_id
+		LEFT JOIN attractions a ON ia.attraction_id = a.attraction_id
+		LEFT JOIN restaurants r ON ia.restaurant_id = r.restaurant_id
+		LEFT JOIN flights     f ON ia.flight_id     = f.flight_id
+		WHERE ia.itinerary_id = $1
+		ORDER BY ia.order_number ASC`
 
 	rows, err := r.db.Query(query, itineraryID)
 	if err != nil {
@@ -89,6 +130,10 @@ func (r *ItineraryActivitiesRepository) GetActivitiesByItineraryID(itineraryID i
 			&activity.StartTime,
 			&activity.EndTime,
 			&activity.Notes,
+			&activity.EntityName,
+			&activity.EntityDetail,
+			&activity.EntityExtra,
+			&activity.EntityRating,
 			&activity.CreatedAt,
 		)
 

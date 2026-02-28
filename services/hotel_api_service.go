@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"travel-planning/internal/cache"
 	"travel-planning/models"
 )
 
@@ -19,11 +21,13 @@ const searchRadiusKm = 20
 
 type HotelAPIService struct {
 	client *http.Client
+	cache  *cache.RedisCache
 }
 
-func NewHotelAPIService() *HotelAPIService {
+func NewHotelAPIService(cache *cache.RedisCache) *HotelAPIService {
 	return &HotelAPIService{
 		client: &http.Client{Timeout: 45 * time.Second},
+		cache:  cache,
 	}
 }
 
@@ -36,7 +40,16 @@ type OverpassHotelResponse struct {
 }
 
 func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*models.Hotel, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("Hotels:%d:%.3f:%.3f", cityID, lat, lon)
 	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
+
+	var cachedHotels []*models.Hotel
+	err := s.cache.Get(ctx, cacheKey, &cachedHotels)
+	if err == nil {
+		l.Info("Hotels retrieved from cache")
+		return cachedHotels, nil
+	}
 	l.Info("Fetching hotels from Overpass API")
 
 	query := fmt.Sprintf(`
@@ -72,6 +85,7 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 	}
 
 	var hotels []*models.Hotel
+	dif := 5.0 - 1.0
 	for _, el := range osmResp.Elements {
 		name := el.Tags["name"]
 		if name == "" {
@@ -83,7 +97,7 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 			stars = 3 + rand.IntN(3)
 		}
 
-		rating := float64(stars) + rand.Float64()*5.0
+		rating := 1.0 + rand.Float64()*dif
 		price := 50.0 + rand.Float64()*150.0
 
 		cityName := el.Tags["addr:city"]
@@ -145,8 +159,15 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 		}
 
 		hotels = append(hotels, newHotel)
-		time.Sleep(500 * time.Millisecond)
 	}
 
+	if len(hotels) > 0 {
+		err = s.cache.Set(ctx, cacheKey, hotels, 24*time.Hour)
+		if err != nil {
+			l.Error("Failed to save hotels to cache", "error", err)
+		}
+	}
+
+	l.Info("Successfully processed hotels", "added_to_db", len(hotels))
 	return hotels, nil
 }

@@ -11,6 +11,8 @@ type Review struct {
 	Comment    string    `json:"comment" db:"comment"`
 	ReviewDate time.Time `json:"review_date" db:"review_date"`
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+
+	EntityName string `json:"entity_name"`
 }
 
 type CreateReviewRequest struct {

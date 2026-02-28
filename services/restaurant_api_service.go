@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"travel-planning/internal/cache"
 	"travel-planning/models"
 )
 
@@ -16,11 +18,13 @@ const restaurantAPIUrl = "https://overpass-api.de/api/interpreter"
 
 type RestaurantAPIService struct {
 	client *http.Client
+	cache  *cache.RedisCache
 }
 
-func NewRestaurantAPIService() *RestaurantAPIService {
+func NewRestaurantAPIService(cache *cache.RedisCache) *RestaurantAPIService {
 	return &RestaurantAPIService{
 		client: &http.Client{Timeout: 60 * time.Second},
+		cache:  cache,
 	}
 }
 
@@ -33,7 +37,17 @@ type RestaurantAPIResponse struct {
 }
 
 func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float64) ([]*models.Restaurant, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("Hotels:%d:%.3f:%.3f", cityID, lat, lon)
 	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
+
+	var cachedRestaurants []*models.Restaurant
+	err := s.cache.Get(ctx, cacheKey, &cachedRestaurants)
+	if err == nil {
+		l.Info("Hotels retrieved from cache")
+		return cachedRestaurants, nil
+	}
+
 	l.Info("Fetching restaurants from Overpass API")
 
 	searchRadiusM := searchRadiusKm * 1000
@@ -130,6 +144,14 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 		}
 		restaurants = append(restaurants, newRestaurant)
 	}
+
+	if len(restaurants) > 0 {
+		err = s.cache.Set(ctx, cacheKey, restaurants, 24*time.Hour)
+		if err != nil {
+			l.Error("Failed to save restaurants to cache", "error", err)
+		}
+	}
+
 	l.Info("Successfully processed restaurants", "total_found", len(apirestaurants.Elements), "added_after_filter", len(restaurants))
 	return restaurants, nil
 }

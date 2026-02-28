@@ -11,7 +11,7 @@ import (
 
 type TripProcessor interface {
 	GetTripByID(id int) (*models.Trip, error)
-	GenerateOptions(trip *models.Trip) ([]models.TripOption, error)
+	GenerateOptions(tripID int) ([]models.TripOption, error)
 	FinalizeTripPlan(tripID int, tier string, hotelID int, outboundID int, inboundID int) error
 }
 
@@ -50,13 +50,7 @@ func (c *Consumer) Start(ctx context.Context) {
 		tripID := int(event["trip_id"].(float64))
 		slog.Info("Consumer picked up trip request", "trip_id", tripID)
 
-		trip, err := c.service.GetTripByID(tripID)
-		if err != nil {
-			slog.Error("Failed to fetch trip from DB", "trip_id", tripID, "error", err)
-			continue
-		}
-
-		options, err := c.service.GenerateOptions(trip)
+		options, err := c.service.GenerateOptions(tripID)
 		if err != nil {
 			slog.Error("Failed to generate options", "trip_id", tripID, "error", err)
 			continue

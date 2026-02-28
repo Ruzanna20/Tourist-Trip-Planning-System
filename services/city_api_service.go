@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"travel-planning/internal/cache"
 	"travel-planning/models"
 )
 
@@ -19,11 +21,13 @@ const MinPopoluation = "[population~\"^[1-9][0-9]{4,}$\"]"
 
 type CityAPIService struct {
 	client *http.Client
+	cache  *cache.RedisCache
 }
 
-func NewCityAPIService() *CityAPIService {
+func NewCityAPIService(cache *cache.RedisCache) *CityAPIService {
 	return &CityAPIService{
 		client: &http.Client{Timeout: 45 * time.Second},
+		cache:  cache,
 	}
 }
 
@@ -35,8 +39,18 @@ type CityAPIResponse struct {
 	} `json:"elements"`
 }
 
-func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City, error) {
+func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]*models.City, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("cities:%s", countryCode)
 	l := slog.With("country_code", countryCode)
+
+	var cachedCities []*models.City
+	err := s.cache.Get(ctx, cacheKey, &cachedCities)
+	if err == nil {
+		l.Info("Serving cities from Redis cache", "country_code", countryCode)
+		return cachedCities, nil
+	}
+
 	l.Info("Fetching cities for country from Overpass API")
 
 	//OverPass QL
@@ -80,12 +94,10 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
-	var cities []models.City
+	var cities []*models.City
 	for _, element := range apicities.Elements {
 		name := element.Tags["name:en"]
-		if name == "" {
-			name = element.Tags["name"]
-		}
+
 		populationStr := element.Tags["population"]
 
 		if name == "" || element.Lat == 0 || element.Lon == 0 || populationStr == "" {
@@ -95,7 +107,7 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City
 
 		population, _ := strconv.Atoi(populationStr)
 
-		newCity := models.City{
+		newCity := &models.City{
 			Name:        name,
 			Latitude:    element.Lat,
 			Longitude:   element.Lon,
@@ -103,6 +115,14 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]models.City
 		}
 		cities = append(cities, newCity)
 	}
+
+	if len(cities) > 0 {
+		err := s.cache.Set(ctx, cacheKey, cities, 24*time.Hour)
+		if err != nil {
+			l.Error("Failed to save cities to Redis", "error", err)
+		}
+	}
+
 	l.Info("Successfully fetched cities", "count", len(cities))
 	return cities, nil
 }

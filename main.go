@@ -8,6 +8,7 @@ import (
 
 	"travel-planning/database"
 	"travel-planning/handlers"
+	"travel-planning/internal/cache"
 	"travel-planning/internal/kafka"
 	"travel-planning/server"
 
@@ -58,6 +59,9 @@ func main() {
 
 	sqlConn := db.GetConn()
 
+	redisAddr := os.Getenv("REDIS_ADDR")
+	cacheService := cache.NewRedisCache(redisAddr)
+
 	countryRepo := repository.NewCountryRepository(sqlConn)
 	cityRepo := repository.NewCityRepository(sqlConn)
 	attractionRepo := repository.NewAttractionRepository(sqlConn)
@@ -72,19 +76,19 @@ func main() {
 	reviewRepo := repository.NewReviewRepository(sqlConn)
 
 	amadeusService := services.NewAmadeusService()
-	countryAPIService := services.NewCountryAPIService()
-	cityAPIService := services.NewCityAPIService()
-	attractionAPIService := services.NewAttractionAPIService()
-	hotelAPIService := services.NewHotelAPIService()
-	restaurantAPIService := services.NewRestaurantAPIService()
-	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo)
+	countryAPIService := services.NewCountryAPIService(cacheService)
+	cityAPIService := services.NewCityAPIService(cacheService)
+	attractionAPIService := services.NewAttractionAPIService(cacheService)
+	hotelAPIService := services.NewHotelAPIService(cacheService)
+	restaurantAPIService := services.NewRestaurantAPIService(cacheService)
+	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo, cacheService)
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		slog.Warn("JWT_SECRET not found in environment, using default development secret")
 		jwtSecret = "default-development-secret-must-be-changed"
 	}
-	jwtService := services.NewJWTService(jwtSecret, "5")
+	jwtService := services.NewJWTService(jwtSecret)
 
 	authService := services.NewAuthService(userRepo, jwtService)
 	userService := services.NewUserService(userRepo, userPreferencesRepo)

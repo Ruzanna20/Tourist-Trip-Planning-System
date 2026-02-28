@@ -28,12 +28,6 @@ func NewUserHandlers(userService *services.UserService) *UserHandlers {
 // @Success 201 {object} map[string]interface{} "user_id"
 // @Router /api/users/register [post]
 func (h *UserHandlers) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		slog.Warn("Method not allowed for registration", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req models.UserRegistrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		slog.Warn("Failed to decode registration request", "error", err)
@@ -76,12 +70,6 @@ func (s *UserHandlers) SetPreferencesHandler(w http.ResponseWriter, r *http.Requ
 	userID, _ := strconv.Atoi(userIDStr)
 	l := slog.With("user_id", userID, "path", r.URL.Path)
 
-	if r.Method != http.MethodPost {
-		l.Warn("Method not allowed for preferences", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	if userID <= 0 {
 		l.Error("Unauthorized preference update attempt")
 		http.Error(w, "Authentication error: Invalid User ID", http.StatusUnauthorized)
@@ -109,4 +97,40 @@ func (s *UserHandlers) SetPreferencesHandler(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"preference_id": prefID,
 	})
+}
+
+// GetPreferencesHandler godoc
+// @Summary Get user preferences
+// @Description Fetch the saved preferences (budget, home city, etc.) for the authenticated user
+// @Security BearerAuth
+// @Tags Users
+// @Produce json
+// @Success 200 {object} models.UserPreferences
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 404 {string} string "Preferences not found"
+// @Router /api/users/preferences [get]
+func (h *UserHandlers) GetPreferencesHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+
+	l := slog.With("user_id", userID, "path", r.URL.Path)
+
+	if err != nil || userID <= 0 {
+		l.Error("Unauthorized preference fetch attempt")
+		http.Error(w, "Authentication error: Invalid User ID", http.StatusUnauthorized)
+		return
+	}
+
+	l.Info("Fetching user preferences")
+
+	prefs, err := h.UserService.GetUserPreferences(userID)
+	if err != nil {
+		l.Warn("User preferences not found in DB", "error", err)
+		http.Error(w, "Preferences not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(prefs)
 }

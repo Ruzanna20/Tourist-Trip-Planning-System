@@ -44,12 +44,6 @@ func NewAuthHandlers(authService *services.AuthService) *AuthHandlers {
 // @Failure 401 {string} string "Invalid information"
 // @Router /login [post]
 func (h *AuthHandlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		slog.Warn("Method not allowed", "method", r.Method, "path", r.URL.Path)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var creds Credentials
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
 		slog.Warn("Failed to decode login credentials", "error", err)
@@ -90,12 +84,6 @@ func (h *AuthHandlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {string} string "Invalid refresh token"
 // @Router /refresh [post]
 func (h *AuthHandlers) RefreshHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		slog.Warn("Method not allowed for refresh", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		slog.Warn("Failed to decode refresh request", "error", err)

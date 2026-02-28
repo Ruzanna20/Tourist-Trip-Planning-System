@@ -135,3 +135,52 @@ func (r *TripRepository) GetTripByID(tripID int) (*models.Trip, error) {
 
 	return &t, nil
 }
+
+func (r *TripRepository) DeleteByIDAndUserID(tripID, userID int) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var exists bool
+	err = tx.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM trips WHERE trip_id = $1 AND user_id = $2)`,
+		tripID, userID,
+	).Scan(&exists)
+
+	if err != nil {
+		return fmt.Errorf("failed to verify trip ownership: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("trip not found or access denied")
+	}
+
+	_, err = tx.Exec(`
+        DELETE FROM itinerary_activities 
+        WHERE itinerary_id IN (SELECT itinerary_id FROM trip_itinerary WHERE trip_id = $1)`,
+		tripID)
+	if err != nil {
+		slog.Error("Failed to delete trip activities", "trip_id", tripID, "error", err)
+		return fmt.Errorf("failed to delete activities: %w", err)
+	}
+
+	_, err = tx.Exec(`DELETE FROM trip_itinerary WHERE trip_id = $1`, tripID)
+	if err != nil {
+		slog.Error("Failed to delete trip itinerary", "trip_id", tripID, "error", err)
+		return fmt.Errorf("failed to delete itinerary: %w", err)
+	}
+
+	_, err = tx.Exec(`DELETE FROM trips WHERE trip_id = $1 AND user_id = $2`, tripID, userID)
+	if err != nil {
+		slog.Error("Failed to delete trip", "trip_id", tripID, "error", err)
+		return fmt.Errorf("failed to delete trip: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	slog.Info("Trip and all related data deleted successfully", "trip_id", tripID, "user_id", userID)
+	return nil
+}

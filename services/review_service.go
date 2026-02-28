@@ -56,3 +56,15 @@ func (s *ReviewService) CreateReview(userID int, req models.CreateReviewRequest)
 	l.Info("Review created successfully", "review_id", reviewID)
 	return reviewID, nil
 }
+
+func (s *ReviewService) GetUserReviews(userID int) ([]models.Review, error) {
+	reviews, err := s.ReviewRepo.GetByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch reviews: %w", err)
+	}
+	return reviews, nil
+}
+
+func (s *ReviewService) DeleteReview(reviewID, userID int) error {
+	return s.ReviewRepo.Delete(reviewID, userID)
+}

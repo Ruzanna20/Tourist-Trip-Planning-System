@@ -1,14 +1,16 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+	"travel-planning/internal/cache"
 	"travel-planning/models"
 )
 
@@ -16,11 +18,13 @@ const AttractionAPIUrl = "https://overpass-api.de/api/interpreter"
 
 type AttractionAPIService struct {
 	client *http.Client
+	cache  *cache.RedisCache
 }
 
-func NewAttractionAPIService() *AttractionAPIService {
+func NewAttractionAPIService(cache *cache.RedisCache) *AttractionAPIService {
 	return &AttractionAPIService{
 		client: &http.Client{Timeout: 90 * time.Second},
+		cache:  cache,
 	}
 }
 
@@ -32,9 +36,19 @@ type AttractionAPIResponse struct {
 	} `json:"elements"`
 }
 
-func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float64) ([]models.Attraction, error) {
+func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float64) ([]*models.Attraction, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("attractions:%d:%.3f:%.3f", cityID, lat, lon)
 	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
-	l.Info("Fetching attractions from Overpass API")
+
+	var cachedAttractions []*models.Attraction
+	err := s.cache.Get(ctx, cacheKey, &cachedAttractions)
+	if err == nil {
+		l.Info("Attractions retrieved from cache")
+		return cachedAttractions, nil
+	}
+
+	l.Info("Fetching attractions from Overpass API (Cache miss)")
 
 	query := fmt.Sprintf(`
     [out:json][timeout:90];
@@ -75,11 +89,11 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
 
-	var attractions []models.Attraction
+	var attractions []*models.Attraction
 	for _, element := range apiattractions.Elements {
 		name := element.Tags["name:en"]
 		if name == "" {
-			name = element.Tags["name"]
+			continue
 		}
 
 		website := element.Tags["website"]
@@ -113,7 +127,7 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 			continue
 		}
 
-		newAttraction := models.Attraction{
+		newAttraction := &models.Attraction{
 			CityID:    cityID,
 			Name:      name,
 			Category:  tourismType,
@@ -126,6 +140,13 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 			UpdatedAt: time.Now(),
 		}
 		attractions = append(attractions, newAttraction)
+	}
+
+	if len(attractions) > 0 {
+		err = s.cache.Set(ctx, cacheKey, attractions, 24*time.Hour)
+		if err != nil {
+			l.Error("Failed to save attractions to cache", "error", err)
+		}
 	}
 
 	l.Info("Successfully processed attractions", "total_found", len(apiattractions.Elements), "added_to_db", len(attractions))

@@ -56,3 +56,58 @@ func (r *ReviewRepository) Insert(review *models.Review) (int, error) {
 	slog.Debug("Review inserted successfully", "review_id", reviewID, "user_id", review.UserID)
 	return reviewID, nil
 }
+
+func (r *ReviewRepository) GetByUserID(userID int) ([]models.Review, error) {
+	query := `
+        SELECT 
+            rv.review_id, rv.rating, rv.comment, rv.created_at,
+            CASE 
+                WHEN rv.hotel_id IS NOT NULL THEN h.name
+                WHEN rv.restaurant_id IS NOT NULL THEN res.name
+                WHEN rv.attraction_id IS NOT NULL THEN a.name
+                ELSE 'Unknown'
+            END as entity_name
+        FROM reviews rv
+        LEFT JOIN hotels h ON rv.hotel_id = h.hotel_id
+        LEFT JOIN restaurants res ON rv.restaurant_id = res.restaurant_id
+        LEFT JOIN attractions a ON rv.attraction_id = a.attraction_id
+        WHERE rv.user_id = $1`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		slog.Error("Failed to fetch reviews for user", "user_id", userID, "error", err)
+		return nil, fmt.Errorf("failed to fetch reviews for user %d: %w", userID, err)
+	}
+	defer rows.Close()
+
+	var reviews []models.Review
+	for rows.Next() {
+		var rev models.Review
+		if err := rows.Scan(
+			&rev.ReviewID,
+			&rev.Rating,
+			&rev.Comment,
+			&rev.CreatedAt,
+			&rev.EntityName,
+		); err != nil {
+			slog.Warn("Error scanning review row", "user_id", userID, "error", err)
+			continue
+		}
+		reviews = append(reviews, rev)
+	}
+	return reviews, nil
+}
+
+func (r *ReviewRepository) Delete(reviewID, userID int) error {
+	query := `DELETE FROM reviews WHERE review_id = $1 AND user_id = $2`
+
+	res, err := r.db.Exec(query, reviewID, userID)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("review not found or unauthorized")
+	}
+	return nil
+}

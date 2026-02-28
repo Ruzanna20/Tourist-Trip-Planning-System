@@ -81,3 +81,17 @@ func (s *UserService) GetUserPreferences(userID int) (*models.UserPreferences, e
 	l.Debug("User preferences fetched successfully")
 	return prefs, nil
 }
+
+func (s *UserService) GetUserByEmail(email string) (*models.User, error) {
+	l := slog.With("email", email)
+	l.Debug("Attempting to fetch user by email")
+
+	user, err := s.UserRepo.GetByEmail(email)
+	if err != nil {
+		l.Error("Failed to fetch user from DB", "error", err)
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	l.Info("User fetched successfully", "email", user.Email)
+	return user, nil
+}

@@ -64,10 +64,13 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/restaurants", authMiddleware(s.ResourceHandlers.GetAllRestaurantssHandler)).Methods("GET")
 	r.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler)).Methods("GET")
 
-	// Review
+	// Reviews
+	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.GetUserReviewsHandler)).Methods("GET")
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler)).Methods("POST")
 
 	// Trips
+	r.HandleFunc("/api/trips", authMiddleware(s.TripHandlers.GetUserTripsHandler)).Methods("GET")
+	r.HandleFunc("/api/trips/{id}", authMiddleware(s.TripHandlers.DeleteTripHandler)).Methods("DELETE")
 	r.HandleFunc("/api/trips/{id}/generate-options", authMiddleware(s.TripHandlers.GenerateTripOptions)).Methods("POST")
 	r.HandleFunc("/api/trips/{id}/select-option", authMiddleware(s.TripHandlers.SelectTripOption)).Methods("POST")
 	r.HandleFunc("/api/trips/create", authMiddleware(s.TripHandlers.CreateTripHandler)).Methods("POST")
@@ -78,6 +81,7 @@ func (s *AppServer) Start(port string) {
 
 	// Users
 	r.HandleFunc("/api/users/register", s.UserHandlers.RegisterUserHandler).Methods("POST")
+	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.GetPreferencesHandler)).Methods("GET")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
 
 	slog.Info("Routes registered successfully")
