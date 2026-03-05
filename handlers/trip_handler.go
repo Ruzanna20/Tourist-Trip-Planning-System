@@ -108,20 +108,20 @@ func (h *TripHandlers) GenerateTripOptions(w http.ResponseWriter, r *http.Reques
 // @Router /api/trips/{id}/itinerary [get]
 func (h *TripHandlers) GetTripItineraryHandler(w http.ResponseWriter, r *http.Request) {
 	userIDStr := r.Header.Get("X-User-ID")
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err1 := strconv.Atoi(userIDStr)
 	vars := mux.Vars(r)
 	tripIDStr := vars["id"]
-	tripID, err := strconv.Atoi(tripIDStr)
+	tripID, err2 := strconv.Atoi(tripIDStr)
 
 	l := slog.With("user_id", userID, "path", r.URL.Path)
 
-	if err != nil || userID <= 0 {
+	if err1 != nil || userID <= 0 {
 		l.Error("Unauthorized access: invalid or missing X-User-ID")
 		http.Error(w, "Authentication error", http.StatusUnauthorized)
 		return
 	}
 
-	if err != nil || tripID <= 0 {
+	if err2 != nil || tripID <= 0 {
 		l.Warn("Invalid Trip ID format", "trip_id_raw", vars["id"])
 		http.Error(w, "Invalid Trip ID format", http.StatusBadRequest)
 		return

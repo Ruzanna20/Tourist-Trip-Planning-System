@@ -130,11 +130,11 @@ func (r *ItineraryActivitiesRepository) GetActivitiesByItineraryID(itineraryID i
 			&activity.StartTime,
 			&activity.EndTime,
 			&activity.Notes,
+			&activity.CreatedAt,
 			&activity.EntityName,
 			&activity.EntityDetail,
 			&activity.EntityExtra,
 			&activity.EntityRating,
-			&activity.CreatedAt,
 		)
 
 		if err != nil {

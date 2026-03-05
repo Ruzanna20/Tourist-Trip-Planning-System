@@ -67,6 +67,7 @@ func (s *AppServer) Start(port string) {
 	// Reviews
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.GetUserReviewsHandler)).Methods("GET")
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler)).Methods("POST")
+	r.HandleFunc("/api/reviews/{id}", authMiddleware(s.ReviewHandlers.DeleteReviewHandler)).Methods("DELETE")
 
 	// Trips
 	r.HandleFunc("/api/trips", authMiddleware(s.TripHandlers.GetUserTripsHandler)).Methods("GET")

@@ -60,18 +60,19 @@ func (r *ReviewRepository) Insert(review *models.Review) (int, error) {
 func (r *ReviewRepository) GetByUserID(userID int) ([]models.Review, error) {
 	query := `
         SELECT 
-            rv.review_id, rv.rating, rv.comment, rv.created_at,
+            rv.review_id, rv.rating, rv.comment, rv.created_at,rv.entity_type,rv.entity_id,
             CASE 
-                WHEN rv.hotel_id IS NOT NULL THEN h.name
-                WHEN rv.restaurant_id IS NOT NULL THEN res.name
-                WHEN rv.attraction_id IS NOT NULL THEN a.name
-                ELSE 'Unknown'
+                WHEN rv.entity_type = 'hotel'      THEN COALESCE(h.name, 'Unknown Hotel')
+                WHEN rv.entity_type = 'restaurant' THEN COALESCE(res.name, 'Unknown Restaurant')
+                WHEN rv.entity_type = 'attraction' THEN COALESCE(a.name, 'Unknown Attraction')
+                ELSE 'Unknown Entity'
             END as entity_name
         FROM reviews rv
-        LEFT JOIN hotels h ON rv.hotel_id = h.hotel_id
-        LEFT JOIN restaurants res ON rv.restaurant_id = res.restaurant_id
-        LEFT JOIN attractions a ON rv.attraction_id = a.attraction_id
-        WHERE rv.user_id = $1`
+        LEFT JOIN hotels h       ON rv.entity_type = 'hotel'      AND rv.entity_id = h.hotel_id
+        LEFT JOIN restaurants res ON rv.entity_type = 'restaurant' AND rv.entity_id = res.restaurant_id
+        LEFT JOIN attractions a   ON rv.entity_type = 'attraction' AND rv.entity_id = a.attraction_id
+        WHERE rv.user_id = $1
+		ORDER BY rv.created_at DESC`
 
 	rows, err := r.db.Query(query, userID)
 	if err != nil {
@@ -88,6 +89,8 @@ func (r *ReviewRepository) GetByUserID(userID int) ([]models.Review, error) {
 			&rev.Rating,
 			&rev.Comment,
 			&rev.CreatedAt,
+			&rev.EntityType,
+			&rev.EntityID,
 			&rev.EntityName,
 		); err != nil {
 			slog.Warn("Error scanning review row", "user_id", userID, "error", err)

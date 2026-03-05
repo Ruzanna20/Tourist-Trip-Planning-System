@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getUserReviews, createReview } from '../api/reviews'
+import { getUserReviews, createReview, deleteReview } from '../api/reviews'
 import { getHotels, getAttractions, getRestaurants } from '../api/resources'
 import PageHeader from '../components/PageHeader'
 
@@ -84,6 +84,16 @@ export default function Reviews() {
     }
   }
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this review?')) return
+    try {
+      await deleteReview(id)
+      fetchReviews()
+    } catch (err) {
+      alert('Failed to delete review')
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* ── Write a review ── */}
@@ -96,7 +106,6 @@ export default function Reviews() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Category toggle */}
             <div>
               <label className="label">Category</label>
               <div className="flex gap-2">
@@ -117,7 +126,6 @@ export default function Reviews() {
               </div>
             </div>
 
-            {/* Entity select */}
             <div>
               <label className="label">
                 Select {ENTITY_TYPES.find((t) => t.value === entityType)?.label}
@@ -132,7 +140,6 @@ export default function Reviews() {
               </select>
             </div>
 
-            {/* Star rating */}
             <div>
               <label className="label">Rating</label>
               <div className="flex gap-1 mt-1">
@@ -150,7 +157,6 @@ export default function Reviews() {
               </div>
             </div>
 
-            {/* Comment */}
             <div>
               <label className="label">Comment</label>
               <textarea
@@ -194,29 +200,46 @@ export default function Reviews() {
         )}
 
         {!loadingReviews && reviews.length > 0 && (
-          <div className="space-y-3 max-w-2xl">
+          <div className="grid gap-4 sm:grid-cols-2">
             {reviews.map((rev) => {
               const typeInfo = ENTITY_TYPES.find((t) => t.value === rev.entity_type)
               return (
-                <div key={rev.review_id} className="card py-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xl">{typeInfo?.icon ?? '📌'}</span>
-                      <span className="text-xs font-medium text-gray-500 capitalize bg-gray-100 px-2 py-0.5 rounded-full">
-                        {rev.entity_type} #{rev.entity_id}
+                <div key={rev.review_id} className="card py-4 relative group hover:shadow-md transition-shadow">
+                  <button 
+                    onClick={() => handleDelete(rev.review_id)}
+                    className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors p-1"
+                    title="Delete review"
+                  >
+                    🗑️
+                  </button>
+
+                  <div className="flex items-start justify-between gap-3 pr-8">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl flex-shrink-0">{typeInfo?.icon ?? '📌'}</span>
+                        <span className="font-semibold text-gray-900 truncate">
+                          {rev.entity_name || `Unknown ${rev.entity_type}`}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                        {rev.entity_type} ID: {rev.entity_id}
                       </span>
                     </div>
+                    
                     <div className="text-right flex-shrink-0">
                       <Stars rating={rev.rating} />
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(rev.review_date).toLocaleDateString('en-US', {
+                        {new Date(rev.created_at).toLocaleDateString('en-US', {
                           year: 'numeric', month: 'short', day: 'numeric',
                         })}
                       </p>
                     </div>
                   </div>
+
                   {rev.comment && (
-                    <p className="mt-3 text-sm text-gray-700 leading-relaxed">{rev.comment}</p>
+                    <div className="mt-3 text-sm text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      "{rev.comment}"
+                    </div>
                   )}
                 </div>
               )

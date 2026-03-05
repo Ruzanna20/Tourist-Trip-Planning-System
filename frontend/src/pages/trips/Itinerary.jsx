@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getTripItinerary, getEnrichedActivities } from '../../api/trips'
+import { getTripItinerary, getItineraryActivities } from '../../api/trips'
 import PageHeader from '../../components/PageHeader'
 
 const ACTIVITY_META = {
@@ -114,7 +114,7 @@ export default function Itinerary() {
         const list = Array.isArray(data) ? data : []
         setDays(list)
         list.forEach((day) => {
-          getEnrichedActivities(day.Itinerary_id)
+          getItineraryActivities(day.Itinerary_id)
             .then((acts) =>
               setActivities((prev) => ({ ...prev, [day.Itinerary_id]: Array.isArray(acts) ? acts : [] })),
             )

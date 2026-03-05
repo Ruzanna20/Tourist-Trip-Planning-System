@@ -5,3 +5,6 @@ export const getUserReviews = () =>
 
 export const createReview = (data) =>
   client.post('/api/reviews', data).then((r) => r.data)
+
+export const deleteReview = (reviewId) =>
+  client.delete(`/api/reviews/${reviewId}`).then((r) => r.data)
