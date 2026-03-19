@@ -11,4 +11,3 @@ tmp_dir = "tmp"
   poll_interval = 500
 
 [log]
-  time = true

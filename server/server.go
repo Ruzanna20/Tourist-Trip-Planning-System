@@ -9,6 +9,7 @@ import (
 
 	_ "travel-planning/docs"
 
+	corsHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 
@@ -87,7 +88,13 @@ func (s *AppServer) Start(port string) {
 
 	slog.Info("Routes registered successfully")
 
-	if err := http.ListenAndServe(port, r); err != nil {
+	corsHandler := corsHandlers.CORS(
+		corsHandlers.AllowedOrigins([]string{"http://localhost:5173"}),
+		corsHandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
+		corsHandlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
+	)(r)
+
+	if err := http.ListenAndServe(port, corsHandler); err != nil {
 		slog.Error("Server failed to start", "error", err)
 	}
 }

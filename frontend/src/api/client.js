@@ -1,11 +1,10 @@
 import axios from 'axios'
 
 const client = axios.create({
-  baseURL: '',
+  baseURL: 'http://localhost:8080',
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Attach JWT token to every request
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
@@ -14,7 +13,6 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-// Auto-refresh on 401
 client.interceptors.response.use(
   (response) => response,
   async (error) => {

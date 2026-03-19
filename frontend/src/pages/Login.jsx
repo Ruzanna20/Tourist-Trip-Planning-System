@@ -17,7 +17,7 @@ export default function Login() {
       await login(form.username, form.password)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data || 'Invalid credentials. Please try again.')
+      setError(err.response?.data || 'Username or Password incorrect.')
     } finally {
       setLoading(false)
     }
