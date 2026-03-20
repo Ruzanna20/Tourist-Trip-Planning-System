@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log/slog"
 	"os"
+	"time"
 
 	"travel-planning/database"
 	"travel-planning/handlers"
 	"travel-planning/internal/cache"
 	"travel-planning/internal/kafka"
+	jobservice "travel-planning/jobService"
 	"travel-planning/server"
 
 	"travel-planning/repository"
@@ -46,9 +47,6 @@ func init() {
 
 func main() {
 	slog.Info("Appliaction starting up")
-
-	seedFlag := flag.Bool("seed", false, "Set to true ran data seeding job")
-	flag.Parse()
 
 	db, err := database.NewDB()
 	if err != nil {
@@ -127,47 +125,86 @@ func main() {
 		restaurantAPIService,
 		flightAPIService)
 
-	if *seedFlag {
-		slog.Info("Starting Seeding Job")
-		// // country
-		// if err := seeder.SeedCountries(); err != nil {
-		// 	slog.Error("CRITICAL: Country Seeding failed", "error", err)
-		// 	os.Exit(1)
-		// }
+	slog.Info("Jobs started in background")
+	interval := 24 * time.Hour
 
-		// //city
-		// if err = seeder.SeedCities(); err != nil {
-		// 	slog.Error("CRITICAL: City Seeding failed", "error", err)
-		// 	os.Exit(1)
-		// }
+	// Country Job
+	countryJob := jobservice.NewCountryJob(seeder)
+	go func() {
+		slog.Info("Country Job scheduled", "interval", interval)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-		// //attraction
-		// if err = seeder.SeedAttractions(); err != nil {
-		// 	slog.Error("CRITICAL: Attraction Seeding failed", "error", err)
-		// 	os.Exit(1)
-		// }
-
-		// // hotel
-		// if err = seeder.SeedHotels(); err != nil {
-		// 	slog.Error("CRITICAL: Hotel Seeding failed", "error", err)
-		// 	os.Exit(1)
-		// }
-
-		//restaurant
-		if err = seeder.SeedRestaurants(); err != nil {
-			slog.Error("CRITICAL: Restaurant Seeding failed", "error", err)
-			os.Exit(1)
+		countryJob.RunJob()
+		for range ticker.C {
+			countryJob.RunJob()
 		}
+	}()
 
-		// //flight
-		// if err = seeder.SeedFlights(); err != nil {
-		// 	slog.Error("CRITICAL: Flight Seeding failed", "error", err)
-		// 	os.Exit(1)
-		// }
+	// City Job
+	cityJob := jobservice.NewCityJob(seeder)
+	go func() {
+		slog.Info("City Job scheduled", "interval", interval)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-		slog.Info("Seeding Job finished successfully")
-		return
-	}
+		cityJob.RunJob()
+		for range ticker.C {
+			cityJob.RunJob()
+		}
+	}()
+
+	// Attraction Job
+	attractionJob := jobservice.NewAttractionJob(seeder)
+	go func() {
+		slog.Info("Attraction Job scheduled", "interval", interval)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		attractionJob.RunJob()
+		for range ticker.C {
+			attractionJob.RunJob()
+		}
+	}()
+
+	// Hotel Job
+	hotelJob := jobservice.NewHotelJob(seeder)
+	go func() {
+		slog.Info("Hotel Job scheduled", "interval", interval)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		hotelJob.RunJob()
+		for range ticker.C {
+			hotelJob.RunJob()
+		}
+	}()
+
+	// Restaurant Job
+	restaurantJob := jobservice.NewRestaurantJob(seeder)
+	go func() {
+		slog.Info("Restaurant Job scheduled", "interval", interval)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		restaurantJob.RunJob()
+		for range ticker.C {
+			restaurantJob.RunJob()
+		}
+	}()
+
+	// Flight Job
+	flightJob := jobservice.NewFlightJob(seeder)
+	go func() {
+		slog.Info("Flight Job scheduled", "interval", interval)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		flightJob.RunJob()
+		for range ticker.C {
+			flightJob.RunJob()
+		}
+	}()
 
 	authHandlers := handlers.NewAuthHandlers(authService)
 	userHandlers := handlers.NewUserHandlers(userService)
@@ -186,86 +223,5 @@ func main() {
 	)
 	appServer.Start(":8080")
 
-	// slog.Info("Jobs started in background")
-	// interval := 24 * time.Hour
-
-	// // Country Job
-	// countryJob := jobservice.NewCountryJob(seeder)
-	// go func() {
-	//     slog.Info("Country Job scheduled", "interval", interval)
-	//     ticker := time.NewTicker(interval)
-	//     defer ticker.Stop()
-
-	//     countryJob.RunJob()
-	//     for range ticker.C {
-	//         countryJob.RunJob()
-	//     }
-	// }()
-
-	// // City Job
-	// cityJob := jobservice.NewCityJob(seeder)
-	// go func() {
-	//     slog.Info("City Job scheduled", "interval", interval)
-	//     ticker := time.NewTicker(interval)
-	//     defer ticker.Stop()
-
-	//     cityJob.RunJob()
-	//     for range ticker.C {
-	//         cityJob.RunJob()
-	//     }
-	// }()
-
-	// // Attraction Job
-	// attractionJob := jobservice.NewAttractionJob(seeder)
-	// go func() {
-	//     slog.Info("Attraction Job scheduled", "interval", interval)
-	//     ticker := time.NewTicker(interval)
-	//     defer ticker.Stop()
-
-	//     attractionJob.RunJob()
-	//     for range ticker.C {
-	//         attractionJob.RunJob()
-	//     }
-	// }()
-
-	// // Hotel Job
-	// hotelJob := jobservice.NewHotelJob(cityRepo, hotelRepo, hotelAPIService)
-	// go func() {
-	//     slog.Info("Hotel Job scheduled", "interval", interval)
-	//     ticker := time.NewTicker(interval)
-	//     defer ticker.Stop()
-
-	//     hotelJob.RunJob()
-	//     for range ticker.C {
-	//         hotelJob.RunJob()
-	//     }
-	// }()
-
-	// // Restaurant Job
-	// restaurantJob := jobservice.NewRestaurantJob(cityRepo, restaurantRepo, restaurantAPIService)
-	// go func() {
-	//     slog.Info("Restaurant Job scheduled", "interval", interval)
-	//     ticker := time.NewTicker(interval)
-	//     defer ticker.Stop()
-
-	//     restaurantJob.RunJob()
-	//     for range ticker.C {
-	//         restaurantJob.RunJob()
-	//     }
-	// }()
-
-	// // Flight Job
-	// flightJob := jobservice.NewFlightJob(seeder)
-	// go func() {
-	//     slog.Info("Flight Job scheduled", "interval", interval)
-	//     ticker := time.NewTicker(interval)
-	//     defer ticker.Stop()
-
-	//     flightJob.RunJob()
-	//     for range ticker.C {
-	//         flightJob.RunJob()
-	//     }
-	// }()
-
-	// select {}
+	select {}
 }

@@ -243,7 +243,7 @@ export default function CreateTrip() {
           )}
 
           <button onClick={() => setStep(1)} className="btn-secondary">
-            ← Back to Details
+            Back to Details
           </button>
         </div>
       )}

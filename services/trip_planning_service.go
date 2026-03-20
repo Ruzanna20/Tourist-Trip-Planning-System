@@ -450,6 +450,11 @@ func (s *TripPlanningService) FinalizeTripPlan(tripID int, tier string, hotelID 
 		return err
 	}
 
+	updateStatusQuery := `UPDATE trips SET status = $1 WHERE trip_id = $2`
+	if _, err := tx.Exec(updateStatusQuery, "Confirmed", tripID); err != nil {
+		return fmt.Errorf("failed to update status: %w", err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		l.Error("Finalize commit failed", "error", err)
 		return err

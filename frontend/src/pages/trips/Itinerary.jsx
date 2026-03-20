@@ -109,23 +109,27 @@ export default function Itinerary() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    setLoading(true);
     getTripItinerary(id)
-      .then((data) => {
+      .then(async (data) => {
         const list = Array.isArray(data) ? data : []
         setDays(list)
-        list.forEach((day) => {
-          getItineraryActivities(day.Itinerary_id)
-            .then((acts) =>
-              setActivities((prev) => ({ ...prev, [day.Itinerary_id]: Array.isArray(acts) ? acts : [] })),
-            )
-            .catch(() =>
-              setActivities((prev) => ({ ...prev, [day.Itinerary_id]: [] })),
-            )
+        const activitiesPromises = list.map(day => 
+        getItineraryActivities(day.Itinerary_id)
+          .then(acts => ({ id: day.Itinerary_id, acts: Array.isArray(acts) ? acts : [] }))
+          .catch(() => ({ id: day.Itinerary_id, acts: [] }))
+        );
+        const results = await Promise.all(activitiesPromises);
+        const newActivitiesMap = {};
+      results.forEach(res => {
+        newActivitiesMap[res.id] = res.acts;
+      });
+        setActivities(newActivitiesMap);
         })
-      })
-      .catch(() => setError('Failed to load itinerary. The plan may still be processing — try refreshing.'))
-      .finally(() => setLoading(false))
-  }, [id])
+    .catch(() => setError('Failed to load itinerary.'))
+    .finally(() => setLoading(false));
+}, [id]);
+      
 
   return (
     <div>

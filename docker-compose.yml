@@ -131,7 +131,7 @@ services:
       - travel-network
 
   promtail:
-    image: grafana/promtail:2.9.0
+    image: grafana/promtail:latest
     container_name: promtail
     volumes:
       - /var/log:/var/log

@@ -50,26 +50,13 @@ func (c *Consumer) Start(ctx context.Context) {
 		tripID := int(event["trip_id"].(float64))
 		slog.Info("Consumer picked up trip request", "trip_id", tripID)
 
-		options, err := c.service.GenerateOptions(tripID)
+		_, err = c.service.GenerateOptions(tripID)
 		if err != nil {
 			slog.Error("Failed to generate options", "trip_id", tripID, "error", err)
 			continue
 		}
-		best := options[0]
 
-		err = c.service.FinalizeTripPlan(
-			tripID,
-			best.Tier,
-			best.Hotel.HotelID,
-			best.OutBoundFlight.FlightID,
-			best.InBoundFlight.FlightID,
-		)
-
-		if err != nil {
-			slog.Error("Failed to finalize trip plan via Kafka worker", "trip_id", tripID, "error", err)
-		} else {
-			slog.Info("Successfully processed trip plan from Kafka", "trip_id", tripID)
-		}
+		slog.Info("Trip options are ready for user selection", "trip_id", tripID)
 
 	}
 }
