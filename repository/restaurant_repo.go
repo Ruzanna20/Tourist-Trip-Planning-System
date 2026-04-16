@@ -163,3 +163,28 @@ func (r *RestaurantRepository) GetBestRestaurantByTier(cityID int, tier string) 
 	slog.Debug("Restaurants fetched successfully", "count", len(results), "city_id", cityID)
 	return results, nil
 }
+
+func (r *RestaurantRepository) GetVisitedRestaurants(userID int) ([]models.Restaurant, error) {
+	query := `
+        SELECT DISTINCT restaurant_id, city_id, name, cuisine, rating
+        FROM restaurants 
+        JOIN trip_itinerary  ON restaurant_id = restaurant_id
+        JOIN trips  ON trip_id = trip_id
+        WHERE user_id = $1`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var restaurants []models.Restaurant
+	for rows.Next() {
+		var res models.Restaurant
+		if err := rows.Scan(&res.RestaurantID, &res.CityID, &res.Name, &res.Cuisine, &res.Rating); err != nil {
+			return nil, err
+		}
+		restaurants = append(restaurants, res)
+	}
+	return restaurants, nil
+}

@@ -125,3 +125,44 @@ func (h *ReviewHandlers) DeleteReviewHandler(w http.ResponseWriter, r *http.Requ
 	slog.Info("Review deleted", "review_id", reviewID, "user_id", userID)
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// GetVisitedEntitiesHandler godoc
+// @Summary Get entities (hotels, attractions, restaurants) visited by the user
+// @Description Returns a list of entities that appear in the user's completed trips
+// @Tags Resources
+// @Security BearerAuth
+// @Param type query string true "Entity type (hotel, attraction, restaurant)"
+// @Produce json
+// @Success 200 {array} interface{}
+// @Router /api/users/me/visited [get]
+func (h *ResourceHandlers) GetVisitedEntitiesHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil || userID <= 0 {
+		http.Error(w, "Unauthorized: Invalid User ID", http.StatusUnauthorized)
+		return
+	}
+
+	entityType := r.URL.Query().Get("type")
+	l := slog.With("endpoint", "GetVisitedEntities", "user_id", userID, "type", entityType)
+
+	if entityType == "" {
+		http.Error(w, "Missing type parameter", http.StatusBadRequest)
+		return
+	}
+
+	entities, err := h.ResourceService.GetVisitedEntities(userID, entityType)
+	if err != nil {
+		l.Error("Service error", "error", err)
+		http.Error(w, "Error fetching visited entities", http.StatusInternalServerError)
+		return
+	}
+
+	l.Debug("Visited entities fetched successfully")
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(entities); err != nil {
+		l.Error("Failed to encode response", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}

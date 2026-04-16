@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getTripItinerary, getItineraryActivities } from '../../api/trips'
+import { getTripItinerary, getItineraryActivities, completeTrip } from '../../api/trips'
 import PageHeader from '../../components/PageHeader'
 
 const ACTIVITY_META = {
@@ -31,9 +31,7 @@ function ActivityCard({ act }) {
         return (
           <>
             {act.entity_detail && <p className="text-xs text-gray-500">📍 {act.entity_detail}</p>}
-            {act.entity_extra && (
-              <p className="text-xs text-gray-500 line-clamp-2">{act.entity_extra}</p>
-            )}
+            {act.entity_extra && <p className="text-xs text-gray-500 line-clamp-2">{act.entity_extra}</p>}
           </>
         )
       case 'attraction':
@@ -47,9 +45,7 @@ function ActivityCard({ act }) {
             {act.entity_extra && Number(act.entity_extra) > 0 && (
               <p className="text-xs text-gray-500 mt-1">Entry fee: ${Number(act.entity_extra).toFixed(2)}</p>
             )}
-            {act.entity_extra === '0' && (
-              <p className="text-xs text-green-600 mt-1">Free entry</p>
-            )}
+            {act.entity_extra === '0' && <p className="text-xs text-green-600 mt-1">Free entry</p>}
           </>
         )
       case 'restaurant':
@@ -60,9 +56,7 @@ function ActivityCard({ act }) {
                 {act.entity_detail}
               </span>
             )}
-            {act.entity_extra && (
-              <p className="text-xs text-gray-500 mt-1">Price: {act.entity_extra}</p>
-            )}
+            {act.entity_extra && <p className="text-xs text-gray-500 mt-1">Price: {act.entity_extra}</p>}
           </>
         )
       case 'flight':
@@ -90,12 +84,8 @@ function ActivityCard({ act }) {
           </p>
         </div>
         {renderDetail()}
-        {act.entity_rating > 0 && (
-          <p className="text-xs text-yellow-600">★ {act.entity_rating.toFixed(1)}</p>
-        )}
-        {act.notes && (
-          <p className="text-xs text-gray-500 italic border-t border-gray-200 pt-1 mt-1">{act.notes}</p>
-        )}
+        {act.entity_rating > 0 && <p className="text-xs text-yellow-600">★ {act.entity_rating.toFixed(1)}</p>}
+        {act.notes && <p className="text-xs text-gray-500 italic border-t border-gray-200 pt-1 mt-1">{act.notes}</p>}
       </div>
     </div>
   )
@@ -107,29 +97,59 @@ export default function Itinerary() {
   const [activities, setActivities] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [completing, setCompleting] = useState(false)
+  const [isCompleted, setIsCompleted] = useState(false) // Պարզ state կոճակի համար
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
+
     getTripItinerary(id)
       .then(async (data) => {
+        if (!isMounted) return;
         const list = Array.isArray(data) ? data : []
         setDays(list)
+
+        if (list.length > 0 && list[0].trip_status === 'Completed') {
+          setIsCompleted(true)
+        }
+
         const activitiesPromises = list.map(day => 
-        getItineraryActivities(day.Itinerary_id)
-          .then(acts => ({ id: day.Itinerary_id, acts: Array.isArray(acts) ? acts : [] }))
-          .catch(() => ({ id: day.Itinerary_id, acts: [] }))
+          getItineraryActivities(day.Itinerary_id)
+            .then(acts => ({ id: day.Itinerary_id, acts: Array.isArray(acts) ? acts : [] }))
+            .catch(() => ({ id: day.Itinerary_id, acts: [] }))
         );
         const results = await Promise.all(activitiesPromises);
         const newActivitiesMap = {};
-      results.forEach(res => {
-        newActivitiesMap[res.id] = res.acts;
+        results.forEach(res => {
+          newActivitiesMap[res.id] = res.acts;
+        });
+        
+        if (isMounted) setActivities(newActivitiesMap);
+      })
+      .catch(() => {
+        if (isMounted) setError('Failed to load itinerary.')
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false)
       });
-        setActivities(newActivitiesMap);
-        })
-    .catch(() => setError('Failed to load itinerary.'))
-    .finally(() => setLoading(false));
-}, [id]);
-      
+
+    return () => { isMounted = false };
+  }, [id]);
+
+  const handleComplete = async () => {
+    if (!window.confirm("Mark this trip as Completed?")) return
+    setCompleting(true)
+    try {
+      await completeTrip(id)
+      alert("Success! Trip marked as Completed.")
+      setIsCompleted(true)
+    } catch (err) {
+      alert("Failed to complete trip.")
+    } finally {
+      setCompleting(false)
+    }
+  }
 
   return (
     <div>
@@ -138,9 +158,24 @@ export default function Itinerary() {
         title="Trip Itinerary"
         subtitle={`Trip #${id}`}
         action={
-          <Link to="/trips" className="btn-secondary">
-            ← My Trips
-          </Link>
+          <div className="flex gap-2">
+            {!isCompleted ? (
+              <button 
+                onClick={handleComplete}
+                disabled={completing}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {completing ? 'Wait...' : '✅ Complete Trip'}
+              </button>
+            ) : (
+              <Link to="/reviews" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                ⭐ Write Reviews
+              </Link>
+            )}
+            <Link to="/trips" className="btn-secondary">
+              ← My Trips
+            </Link>
+          </div>
         }
       />
 
@@ -151,15 +186,12 @@ export default function Itinerary() {
         </div>
       )}
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
-      )}
+      {error && <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
 
       {!loading && !error && days.length === 0 && (
         <div className="card text-center py-16">
           <p className="text-4xl mb-3">⏳</p>
           <p className="font-medium text-gray-700">Itinerary is being generated</p>
-          <p className="text-sm text-gray-400 mt-1">Your trip plan is still processing. Please refresh in a moment.</p>
         </div>
       )}
 
@@ -168,7 +200,6 @@ export default function Itinerary() {
           const dayActivities = activities[day.Itinerary_id]
           return (
             <div key={day.Itinerary_id} className="card">
-              {/* Day header */}
               <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
                 <div className="w-10 h-10 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
                   {day.day_number}
@@ -179,24 +210,17 @@ export default function Itinerary() {
                 </div>
               </div>
 
-              {day.notes && (
-                <p className="text-sm text-gray-600 mb-3 italic">{day.notes}</p>
-              )}
+              {day.notes && <p className="text-sm text-gray-600 mb-3 italic">{day.notes}</p>}
 
-              {dayActivities === undefined ? (
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <div className="w-3 h-3 border border-gray-300 border-t-brand-400 rounded-full animate-spin" />
-                  Loading activities…
-                </div>
-              ) : dayActivities.length === 0 ? (
-                <p className="text-xs text-gray-400">No activities scheduled for this day.</p>
-              ) : (
-                <div className="space-y-2">
-                  {dayActivities.map((act) => (
-                    <ActivityCard key={act.activity_id} act={act} />
-                  ))}
-                </div>
-              )}
+              <div className="space-y-2">
+                {dayActivities === undefined ? (
+                  <p className="text-xs text-gray-400 animate-pulse">Loading activities…</p>
+                ) : dayActivities.length === 0 ? (
+                  <p className="text-xs text-gray-400">No activities scheduled.</p>
+                ) : (
+                  dayActivities.map((act) => <ActivityCard key={act.activity_id} act={act} />)
+                )}
+              </div>
             </div>
           )
         })}

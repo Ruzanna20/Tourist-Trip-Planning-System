@@ -65,6 +65,8 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/restaurants", authMiddleware(s.ResourceHandlers.GetAllRestaurantssHandler)).Methods("GET")
 	r.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler)).Methods("GET")
 
+	r.HandleFunc("/api/users/me/visited", s.ResourceHandlers.GetVisitedEntitiesHandler).Methods("GET")
+
 	// Reviews
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.GetUserReviewsHandler)).Methods("GET")
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler)).Methods("POST")
@@ -76,6 +78,8 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/trips/{id}/generate-options", authMiddleware(s.TripHandlers.GenerateTripOptions)).Methods("POST")
 	r.HandleFunc("/api/trips/{id}/select-option", authMiddleware(s.TripHandlers.SelectTripOption)).Methods("POST")
 	r.HandleFunc("/api/trips/create", authMiddleware(s.TripHandlers.CreateTripHandler)).Methods("POST")
+
+	r.HandleFunc("/api/trips/{id}/complete", authMiddleware(s.TripHandlers.CompleteTripHandler)).Methods("POST", "OPTIONS")
 
 	// Itinerary & Activities
 	r.HandleFunc("/api/trips/{id}/itinerary", authMiddleware(s.TripHandlers.GetTripItineraryHandler)).Methods("GET")

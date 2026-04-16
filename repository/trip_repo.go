@@ -23,8 +23,8 @@ func (r *TripRepository) GetConn() *sql.DB {
 }
 
 func (r *TripRepository) Insert(tx *sql.Tx, trip *models.Trip) (int, error) {
-	query := `INSERT INTO trips (user_id, destination_city_id, title, start_date, end_date, total_price, status, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	query := `INSERT INTO trips (user_id, destination_city_id, title, start_date, end_date, duration, total_price, status, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,$10)
     RETURNING trip_id;`
 
 	var tripID int
@@ -36,6 +36,7 @@ func (r *TripRepository) Insert(tx *sql.Tx, trip *models.Trip) (int, error) {
 		trip.Title,
 		trip.StartDate,
 		trip.EndDate,
+		trip.Duration,
 		trip.TotalPrice,
 		trip.Status,
 		currTime,
@@ -60,7 +61,7 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 
 	query := `SELECT 
                 trip_id, user_id, destination_city_id, title, start_date, end_date, 
-                total_price, status, created_at, updated_at
+                duration, total_price, status, created_at, updated_at
               FROM trips 
               WHERE user_id = $1`
 
@@ -75,19 +76,32 @@ func (r *TripRepository) GetAllTripsByUserID(userID int) ([]models.Trip, error) 
 
 	for rows.Next() {
 		var t models.Trip
-		var totalPriceSql sql.NullFloat64
-		var statusSql sql.NullString
+		var startDate, endDate sql.NullTime
+		var totalPrice sql.NullFloat64
+		var duration sql.NullInt64
+		var status sql.NullString
 
 		if err := rows.Scan(
-			&t.TripID, &t.UserID, &t.DestinationCityID, &t.Title,
-			&t.StartDate, &t.EndDate, &totalPriceSql,
-			&statusSql, &t.CreatedAt, &t.UpdatedAt,
+			&t.TripID,
+			&t.UserID,
+			&t.DestinationCityID,
+			&t.Title,
+			&startDate,
+			&endDate,
+			&duration,
+			&totalPrice,
+			&status,
+			&t.CreatedAt,
+			&t.UpdatedAt,
 		); err != nil {
-			slog.Warn("Error scanning trip row", "user_id", userID, "error", err)
+			slog.Warn("Error scanning trip row", "error", err)
 			continue
 		}
-		t.TotalPrice = totalPriceSql.Float64
-		t.Status = statusSql.String
+		t.StartDate = startDate.Time
+		t.EndDate = endDate.Time
+		t.Duration = int(duration.Int64)
+		t.TotalPrice = totalPrice.Float64
+		t.Status = status.String
 
 		trips = append(trips, t)
 	}
@@ -100,27 +114,29 @@ func (r *TripRepository) GetTripByID(tripID int) (*models.Trip, error) {
 
 	query := `SELECT 
                 trip_id, user_id, destination_city_id, title, start_date, end_date, 
-                total_price, status, created_at, updated_at
+                duration, total_price, status, created_at, updated_at
               FROM trips 
               WHERE trip_id = $1`
 
 	var t models.Trip
-	var totalPriceSql sql.NullFloat64
-	var statusSql sql.NullString
+	var startDate, endDate sql.NullTime
+	var totalPrice sql.NullFloat64
+	var duration sql.NullInt64
+	var status sql.NullString
 
 	err := r.db.QueryRow(query, tripID).Scan(
 		&t.TripID,
 		&t.UserID,
 		&t.DestinationCityID,
 		&t.Title,
-		&t.StartDate,
-		&t.EndDate,
-		&totalPriceSql,
-		&statusSql,
+		&startDate,
+		&endDate,
+		&duration,
+		&totalPrice,
+		&status,
 		&t.CreatedAt,
 		&t.UpdatedAt,
 	)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			slog.Warn("Trip not found", "trip_id", tripID)
@@ -130,8 +146,11 @@ func (r *TripRepository) GetTripByID(tripID int) (*models.Trip, error) {
 		return nil, err
 	}
 
-	t.TotalPrice = totalPriceSql.Float64
-	t.Status = statusSql.String
+	t.StartDate = startDate.Time
+	t.EndDate = endDate.Time
+	t.Duration = int(duration.Int64)
+	t.TotalPrice = totalPrice.Float64
+	t.Status = status.String
 
 	return &t, nil
 }
@@ -183,4 +202,10 @@ func (r *TripRepository) DeleteByIDAndUserID(tripID, userID int) error {
 
 	slog.Info("Trip and all related data deleted successfully", "trip_id", tripID, "user_id", userID)
 	return nil
+}
+
+func (r *TripRepository) UpdateStatus(tripID, userID int, status string) error {
+	query := `UPDATE trips SET status = $1, updated_at = NOW() WHERE trip_id = $2 AND user_id = $3`
+	_, err := r.db.Exec(query, status, tripID, userID)
+	return err
 }

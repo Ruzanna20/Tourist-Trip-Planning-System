@@ -480,6 +480,26 @@ func (s *TripPlanningService) GetActivitiesByDay(itineraryID int) ([]*models.Iti
 	return s.ItineraryActivitiesRepo.GetActivitiesByItineraryID(itineraryID)
 }
 
-func (s *TripPlanningService) DeleteUserTrip(tripID, userID int) error {
-	return s.TripRepo.DeleteByIDAndUserID(tripID, userID)
+func (s *TripPlanningService) UpdateTripStatus(tripID, userID int, newStatus string) error {
+	l := slog.With("trip_id", tripID, "user_id", userID, "new_status", newStatus)
+
+	trip, err := s.TripRepo.GetTripByID(tripID)
+	if err != nil {
+		l.Error("Trip not found", "error", err)
+		return fmt.Errorf("trip not found")
+	}
+
+	if trip.UserID != userID {
+		l.Warn("Unauthorized status update attempt")
+		return fmt.Errorf("unauthorized")
+	}
+
+	err = s.TripRepo.UpdateStatus(tripID, userID, newStatus)
+	if err != nil {
+		l.Error("Failed to update status in database", "error", err)
+		return err
+	}
+
+	l.Info("Trip status updated successfully")
+	return nil
 }

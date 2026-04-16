@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getUserReviews, createReview, deleteReview } from '../api/reviews'
-import { getHotels, getAttractions, getRestaurants } from '../api/resources'
+// Փոխարինում ենք հին լոդերները նոր ֆունկցիայով
+import { getVisitedEntities } from '../api/resources' 
 import PageHeader from '../components/PageHeader'
 
 const ENTITY_TYPES = [
@@ -8,12 +9,6 @@ const ENTITY_TYPES = [
   { value: 'attraction', label: 'Attraction',  icon: '🎡' },
   { value: 'restaurant', label: 'Restaurant',  icon: '🍽️' },
 ]
-
-const loaders = {
-  hotel:      getHotels,
-  attraction: getAttractions,
-  restaurant: getRestaurants,
-}
 
 function getEntityId(type, entity) {
   if (type === 'hotel')      return entity.hotel_id
@@ -42,6 +37,7 @@ export default function Reviews() {
   const [form, setForm] = useState({ entity_id: '', rating: 5, comment: '' })
   const [reviews, setReviews] = useState([])
   const [loadingReviews, setLoadingReviews] = useState(true)
+  const [loadingEntities, setLoadingEntities] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -57,15 +53,35 @@ export default function Reviews() {
     fetchReviews()
   }, [fetchReviews])
 
+  // Սա այն կարևոր հատվածն է, որը բերում է միայն այցելած տեղերը
   useEffect(() => {
     setForm((f) => ({ ...f, entity_id: '' }))
-    loaders[entityType]().then(setEntities).catch(() => setEntities([]))
+    setError('')
+    setLoadingEntities(true)
+    
+    // Կանչում ենք API-ն, որը Backend-ում JOIN է անում Trips-ի հետ
+    getVisitedEntities(entityType)
+      .then((data) => {
+        setEntities(Array.isArray(data) ? data : [])
+      })
+      .catch((err) => {
+        setEntities([])
+        // Եթե տվյալներ չկան, օգտատիրոջը տեղեկացնում ենք պատճառի մասին
+        if (err.response?.status === 404 || err.response?.data?.message?.includes('not visited')) {
+           console.log("No visited entities found");
+        }
+      })
+      .finally(() => setLoadingEntities(false))
   }, [entityType])
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!form.entity_id) {
+        setError('Please select a place you have visited.')
+        return
+    }
     setError('')
     setSubmitting(true)
     try {
@@ -96,9 +112,8 @@ export default function Reviews() {
 
   return (
     <div className="space-y-8">
-      {/* ── Write a review ── */}
       <div>
-        <PageHeader icon="⭐" title="Write a Review" subtitle="Share your experience" />
+        <PageHeader icon="⭐" title="Write a Review" subtitle="Share your experience from past trips" />
 
         <div className="card max-w-lg">
           {error && (
@@ -113,7 +128,10 @@ export default function Reviews() {
                   <button
                     key={t.value}
                     type="button"
-                    onClick={() => setEntityType(t.value)}
+                    onClick={() => {
+                        setEntityType(t.value)
+                        setError('')
+                    }}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border text-sm font-medium transition-colors ${
                       entityType === t.value
                         ? 'border-brand-500 bg-brand-50 text-brand-700'
@@ -130,14 +148,28 @@ export default function Reviews() {
               <label className="label">
                 Select {ENTITY_TYPES.find((t) => t.value === entityType)?.label}
               </label>
-              <select className="input" value={form.entity_id} onChange={set('entity_id')} required>
-                <option value="">Choose…</option>
+              <select 
+                className="input" 
+                value={form.entity_id} 
+                onChange={set('entity_id')} 
+                required
+                disabled={loadingEntities || entities.length === 0}
+              >
+                <option value="">
+                    {loadingEntities ? 'Checking your trip history...' : 
+                     entities.length === 0 ? `No visited ${entityType}s found` : 'Choose a place you visited…'}
+                </option>
                 {entities.map((e) => (
                   <option key={getEntityId(entityType, e)} value={getEntityId(entityType, e)}>
                     {getEntityLabel(entityType, e)}
                   </option>
                 ))}
               </select>
+              {entities.length === 0 && !loadingEntities && (
+                <p className="mt-2 text-xs text-amber-600 italic">
+                  * You can only review places that were part of your completed trip itineraries.
+                </p>
+              )}
             </div>
 
             <div>
@@ -164,18 +196,22 @@ export default function Reviews() {
                 rows={3}
                 value={form.comment}
                 onChange={set('comment')}
-                placeholder="Share your experience…"
+                placeholder="How was your visit?"
                 required
               />
             </div>
 
-            <button type="submit" disabled={submitting} className="btn-primary w-full justify-center">
+            <button 
+              type="submit" 
+              disabled={submitting || entities.length === 0} 
+              className="btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {submitting ? 'Submitting…' : 'Submit Review'}
             </button>
           </form>
         </div>
       </div>
-
+      
       {/* ── My Reviews ── */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">

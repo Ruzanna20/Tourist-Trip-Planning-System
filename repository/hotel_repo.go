@@ -165,3 +165,28 @@ func (r *HotelRepository) GetBestHotelByTier(cityID int, budgetMax float64, tier
 
 	return hotel, nil
 }
+
+func (r *HotelRepository) GetVisitedHotels(userID int) ([]models.Hotel, error) {
+	query := `
+        SELECT DISTINCT hotel_id, city_id, name, address, stars, rating, price_per_night
+        FROM hotels 
+        JOIN trip_itinerary  ON hotel_id = hotel_id
+        JOIN trips ON trip_id = trip_id
+        WHERE user_id = $1`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hotels []models.Hotel
+	for rows.Next() {
+		var h models.Hotel
+		if err := rows.Scan(&h.HotelID, &h.CityID, &h.Name, &h.Address, &h.Stars, &h.Rating, &h.PricePerNight); err != nil {
+			return nil, err
+		}
+		hotels = append(hotels, h)
+	}
+	return hotels, nil
+}

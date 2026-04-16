@@ -53,11 +53,6 @@ func (s *UserService) SavePreferences(userID int, preferences models.UserPrefere
 	l := slog.With("user_id", userID)
 	l.Debug("Attempting to save user preferences")
 
-	if preferences.BudgetMin <= 0 || preferences.BudgetMax <= preferences.BudgetMin {
-		l.Warn("Invalid budget range provided", "min", preferences.BudgetMin, "max", preferences.BudgetMax)
-		return 0, fmt.Errorf("invalid budget range")
-	}
-
 	preferences.UserID = userID
 	prefID, err := s.UserPreferencesRepo.Upsert(&preferences)
 	if err != nil {

@@ -49,9 +49,9 @@ func (h *TripHandlers) CreateTripHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if req.Name == "" || req.StartDate == "" || req.EndDate == "" {
+	if req.Name == "" {
 		l.Warn("Missing required trip fields", "name", req.Name)
-		http.Error(w, "Trip name, start date, and end date are required.", http.StatusBadRequest)
+		http.Error(w, "Trip name is required.", http.StatusBadRequest)
 		return
 	}
 
@@ -287,4 +287,63 @@ func (h *TripHandlers) GetUserTripsHandler(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(trips)
+}
+
+// CompleteTripHandler godoc
+// @Summary Mark a trip as completed
+// @Description Updates the trip status to 'Completed' so the user can leave reviews
+// @Security BearerAuth
+// @Tags Trips
+// @Param id path int true "Trip ID"
+// @Success 200 {object} map[string]string
+// @Router /api/trips/{id}/complete [post]
+func (h *TripHandlers) CompleteTripHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if vars == nil {
+		http.Error(w, "Internal Server Error: No vars", http.StatusInternalServerError)
+		return
+	}
+
+	tripIDStr, ok := vars["id"]
+	if !ok {
+		http.Error(w, "Missing trip ID", http.StatusBadRequest)
+		return
+	}
+
+	tripID, err := strconv.Atoi(tripIDStr)
+	if err != nil {
+		http.Error(w, "Invalid trip ID format", http.StatusBadRequest)
+		return
+	}
+
+	userIDStr := r.Header.Get("X-User-ID")
+	if userIDStr == "" {
+		slog.Warn("X-User-ID is missing in header")
+		http.Error(w, "Unauthorized: User ID missing", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		slog.Error("Invalid User ID format in header", "val", userIDStr)
+		http.Error(w, "Unauthorized: Invalid User ID", http.StatusUnauthorized)
+		return
+	}
+
+	if h.TripPlanningService == nil {
+		slog.Error("TripPlanningService is NOT initialized!")
+		http.Error(w, "Internal server error: service missing", http.StatusInternalServerError)
+		return
+	}
+
+	err = h.TripPlanningService.UpdateTripStatus(tripID, userID, "Completed")
+	if err != nil {
+		slog.Error("Database update failed", "trip_id", tripID, "error", err)
+		http.Error(w, "Failed to update trip status", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Trip marked as completed"})
 }

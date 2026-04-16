@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log/slog"
 	"travel-planning/models"
 	"travel-planning/repository"
@@ -91,4 +92,17 @@ func (s *ResourceService) GetAllFlights() ([]models.Flight, error) {
 	}
 	slog.Debug("Fetched flights from database", "count", len(flights))
 	return flights, nil
+}
+
+func (s *ResourceService) GetVisitedEntities(userID int, entityType string) (interface{}, error) {
+	switch entityType {
+	case "hotel":
+		return s.HotelRepo.GetVisitedHotels(userID)
+	case "attraction":
+		return s.AttractionRepo.GetVisitedAttractions(userID)
+	case "restaurant":
+		return s.RestaurantRepo.GetVisitedRestaurants(userID)
+	default:
+		return nil, fmt.Errorf("invalid entity type: %s", entityType)
+	}
 }

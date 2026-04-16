@@ -12,13 +12,15 @@ import (
 	"time"
 	"travel-planning/internal/cache"
 	"travel-planning/models"
+	"travel-planning/repository"
 )
 
 const restaurantAPIUrl = "https://overpass-api.de/api/interpreter"
 
 type RestaurantAPIService struct {
-	client *http.Client
-	cache  *cache.RedisCache
+	client         *http.Client
+	cache          *cache.RedisCache
+	RestaurantRepo *repository.RestaurantRepository
 }
 
 func NewRestaurantAPIService(cache *cache.RedisCache) *RestaurantAPIService {
@@ -154,4 +156,12 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 
 	l.Info("Successfully processed restaurants", "total_found", len(apirestaurants.Elements), "added_after_filter", len(restaurants))
 	return restaurants, nil
+}
+
+func (s *TripPlanningService) DeleteUserTrip(tripID, userID int) error {
+	return s.TripRepo.DeleteByIDAndUserID(tripID, userID)
+}
+
+func (s *RestaurantAPIService) GetVisitedRestaurants(userID int) ([]models.Restaurant, error) {
+	return s.RestaurantRepo.GetVisitedRestaurants(userID)
 }

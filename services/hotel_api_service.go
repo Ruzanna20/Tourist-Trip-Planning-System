@@ -13,6 +13,7 @@ import (
 	"time"
 	"travel-planning/internal/cache"
 	"travel-planning/models"
+	"travel-planning/repository"
 )
 
 const hotelAPIURL = "https://overpass-api.de/api/interpreter"
@@ -20,8 +21,9 @@ const hotelLimit = 10
 const searchRadiusKm = 20
 
 type HotelAPIService struct {
-	client *http.Client
-	cache  *cache.RedisCache
+	client    *http.Client
+	cache     *cache.RedisCache
+	HotelRepo *repository.HotelRepository
 }
 
 func NewHotelAPIService(cache *cache.RedisCache) *HotelAPIService {
@@ -170,4 +172,8 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 
 	l.Info("Successfully processed hotels", "added_to_db", len(hotels))
 	return hotels, nil
+}
+
+func (s *HotelAPIService) GetVisitedHotels(userID int) ([]models.Hotel, error) {
+	return s.HotelRepo.GetVisitedHotels(userID)
 }

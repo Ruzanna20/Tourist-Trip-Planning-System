@@ -141,70 +141,70 @@ func main() {
 		}
 	}()
 
-	// City Job
-	cityJob := jobservice.NewCityJob(seeder)
-	go func() {
-		slog.Info("City Job scheduled", "interval", interval)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+	// // City Job
+	// cityJob := jobservice.NewCityJob(seeder)
+	// go func() {
+	// 	slog.Info("City Job scheduled", "interval", interval)
+	// 	ticker := time.NewTicker(interval)
+	// 	defer ticker.Stop()
 
-		cityJob.RunJob()
-		for range ticker.C {
-			cityJob.RunJob()
-		}
-	}()
+	// 	cityJob.RunJob()
+	// 	for range ticker.C {
+	// 		cityJob.RunJob()
+	// 	}
+	// }()
 
-	// Attraction Job
-	attractionJob := jobservice.NewAttractionJob(seeder)
-	go func() {
-		slog.Info("Attraction Job scheduled", "interval", interval)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+	// // Attraction Job
+	// attractionJob := jobservice.NewAttractionJob(seeder)
+	// go func() {
+	// 	slog.Info("Attraction Job scheduled", "interval", interval)
+	// 	ticker := time.NewTicker(interval)
+	// 	defer ticker.Stop()
 
-		attractionJob.RunJob()
-		for range ticker.C {
-			attractionJob.RunJob()
-		}
-	}()
+	// 	attractionJob.RunJob()
+	// 	for range ticker.C {
+	// 		attractionJob.RunJob()
+	// 	}
+	// }()
 
-	// Hotel Job
-	hotelJob := jobservice.NewHotelJob(seeder)
-	go func() {
-		slog.Info("Hotel Job scheduled", "interval", interval)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+	// // Hotel Job
+	// hotelJob := jobservice.NewHotelJob(seeder)
+	// go func() {
+	// 	slog.Info("Hotel Job scheduled", "interval", interval)
+	// 	ticker := time.NewTicker(interval)
+	// 	defer ticker.Stop()
 
-		hotelJob.RunJob()
-		for range ticker.C {
-			hotelJob.RunJob()
-		}
-	}()
+	// 	hotelJob.RunJob()
+	// 	for range ticker.C {
+	// 		hotelJob.RunJob()
+	// 	}
+	// }()
 
-	// Restaurant Job
-	restaurantJob := jobservice.NewRestaurantJob(seeder)
-	go func() {
-		slog.Info("Restaurant Job scheduled", "interval", interval)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+	// // Restaurant Job
+	// restaurantJob := jobservice.NewRestaurantJob(seeder)
+	// go func() {
+	// 	slog.Info("Restaurant Job scheduled", "interval", interval)
+	// 	ticker := time.NewTicker(interval)
+	// 	defer ticker.Stop()
 
-		restaurantJob.RunJob()
-		for range ticker.C {
-			restaurantJob.RunJob()
-		}
-	}()
+	// 	restaurantJob.RunJob()
+	// 	for range ticker.C {
+	// 		restaurantJob.RunJob()
+	// 	}
+	// }()
 
-	// Flight Job
-	flightJob := jobservice.NewFlightJob(seeder)
-	go func() {
-		slog.Info("Flight Job scheduled", "interval", interval)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+	// // Flight Job
+	// flightJob := jobservice.NewFlightJob(seeder)
+	// go func() {
+	// 	slog.Info("Flight Job scheduled", "interval", interval)
+	// 	ticker := time.NewTicker(interval)
+	// 	defer ticker.Stop()
 
-		flightJob.RunJob()
-		for range ticker.C {
-			flightJob.RunJob()
-		}
-	}()
+	// 	flightJob.RunJob()
+	// 	for range ticker.C {
+	// 		flightJob.RunJob()
+	// 	}
+	// }()
 
 	authHandlers := handlers.NewAuthHandlers(authService)
 	userHandlers := handlers.NewUserHandlers(userService)

@@ -12,13 +12,15 @@ import (
 	"time"
 	"travel-planning/internal/cache"
 	"travel-planning/models"
+	"travel-planning/repository"
 )
 
 const AttractionAPIUrl = "https://overpass-api.de/api/interpreter"
 
 type AttractionAPIService struct {
-	client *http.Client
-	cache  *cache.RedisCache
+	client         *http.Client
+	cache          *cache.RedisCache
+	AttractionRepo *repository.AttractionRepository
 }
 
 func NewAttractionAPIService(cache *cache.RedisCache) *AttractionAPIService {
@@ -151,4 +153,8 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 
 	l.Info("Successfully processed attractions", "total_found", len(apiattractions.Elements), "added_to_db", len(attractions))
 	return attractions, nil
+}
+
+func (s *AttractionAPIService) GetVisitedAttractions(userID int) ([]models.Attraction, error) {
+	return s.AttractionRepo.GetVisitedAttractions(userID)
 }

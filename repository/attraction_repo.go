@@ -151,3 +151,28 @@ func (s *AttractionRepository) GetBestAttractionsByTier(cityID int, budgetLimit 
 	slog.Debug("Attractions fetched successfully", "count", len(results))
 	return results, nil
 }
+
+func (r *AttractionRepository) GetVisitedAttractions(userID int) ([]models.Attraction, error) {
+	query := `
+        SELECT DISTINCT attraction_id, city_id, name, category, rating
+        FROM attractions 
+        JOIN trip_itinerary  ON attraction_id = attraction_id
+        JOIN trips  ON trip_id = trip_id
+        WHERE user_id = $1`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var attractions []models.Attraction
+	for rows.Next() {
+		var a models.Attraction
+		if err := rows.Scan(&a.AttractionID, &a.CityID, &a.Name, &a.Category, &a.Rating); err != nil {
+			return nil, err
+		}
+		attractions = append(attractions, a)
+	}
+	return attractions, nil
+}
