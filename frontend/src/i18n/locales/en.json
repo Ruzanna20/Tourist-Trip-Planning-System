@@ -1,0 +1,12 @@
+{
+  "translation": {
+    "welcome": "Welcome",
+    "write_review": "Write a Review",
+    "select_category": "Select Category",
+    "no_visited": "No visited places found",
+    "submit": "Submit Review",
+    "hotel": "Hotel",
+    "restaurant": "Restaurant",
+    "attraction": "Attraction"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "translation": {
+    "welcome": "Բարի գալուստ",
+    "write_review": "Գրել կարծիք",
+    "select_category": "Ընտրեք կատեգորիան",
+    "no_visited": "Այցելած վայրեր չեն գտնվել",
+    "submit": "Ուղարկել",
+    "hotel": "Հյուրանոց",
+    "restaurant": "Ռեստորան",
+    "attraction": "Տեսարժան վայր"
+  }
+}

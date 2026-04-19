@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"travel-planning/services"
 )
 
@@ -169,4 +170,43 @@ func (h *ResourceHandlers) GetAllFlightsHandler(w http.ResponseWriter, r *http.R
 	if err := json.NewEncoder(w).Encode(flights); err != nil {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 	}
+}
+
+// GetVisitedEntitiesHandler godoc
+// @Summary Get entities (hotels, attractions, restaurants) visited by the user
+// @Description Returns a list of entities that appear in the user's completed trips
+// @Tags Resources
+// @Security BearerAuth
+// @Param type query string true "Entity type (hotel, attraction, restaurant)"
+// @Produce json
+// @Success 200 {array} interface{}
+// @Router /api/users/me/visited [get]
+func (h *ResourceHandlers) GetVisitedEntitiesHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	slog.Info("Checking Visited for User", "userID", userIDStr)
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil || userID <= 0 {
+		slog.Error("Unauthorized: Invalid User ID in GetVisitedEntities", "id_raw", userIDStr)
+		http.Error(w, "Unauthorized: Invalid User ID", http.StatusUnauthorized)
+		return
+	}
+
+	entityType := r.URL.Query().Get("type")
+	l := slog.With("endpoint", "GetVisitedEntities", "user_id", userID, "type", entityType)
+
+	if entityType == "" {
+		http.Error(w, "Missing type parameter", http.StatusBadRequest)
+		return
+	}
+
+	l.Info("Fetching visited entities from service")
+	entities, err := h.ResourceService.GetVisitedEntities(userID, entityType)
+	if err != nil {
+		l.Error("Service error", "error", err)
+		http.Error(w, "Error fetching visited entities", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entities)
 }

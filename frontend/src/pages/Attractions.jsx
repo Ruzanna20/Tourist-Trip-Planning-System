@@ -26,12 +26,22 @@ export default function Attractions() {
     setLoading(true)
     Promise.all([getAttractions(), getCities()])
       .then(([attractionsData, citiesData]) => {
-        setAttractions(attractionsData || [])
-        setCities(citiesData || [])
+        const sortedAttractions = (attractionsData || []).sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+
+        const sortedCities = (citiesData || []).sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+
+        setAttractions(sortedAttractions);
+        setCities(sortedCities);
       })
       .catch(err => console.error("Error loading data:", err))
       .finally(() => setLoading(false))
   }, [])
+
+  const sortedCategories = Object.keys(CATEGORY_COLORS).sort((a, b) => a.localeCompare(b));
 
   const filteredData = attractions.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -58,13 +68,31 @@ export default function Attractions() {
       )
     },
     { key: 'rating', label: 'Rating', render: (val) => `⭐ ${val.toFixed(1)}` },
+    { 
+      key: 'website', 
+      label: 'Information', 
+      render: (url) => {
+        if (!url) return <span className="text-gray-400 italic text-xs">No link</span>;
+        const href = url.startsWith('http') ? url : `https://${url}`;
+        return (
+          <a 
+            href={href} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="inline-flex items-center px-3 py-1 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors border border-purple-200 font-medium text-xs"
+          >
+            View Website ↗
+          </a>
+        );
+      }
+    },
   ]
 
   return (
     <div>
-      <PageHeader icon="🏛️" title="Attractions" subtitle="Explore tourist spots with custom filters" />
+      <PageHeader icon="🏛️" title="Attractions" subtitle={loading ? 'Loading points of interest...' : `${filteredData.length} spots to explore`} />
 
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>
           <label className="label">Search Name</label>
           <input 
@@ -85,12 +113,12 @@ export default function Attractions() {
           <label className="label">Category</label>
           <select className="input" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
             <option value="">All Categories</option>
-            {Object.keys(CATEGORY_COLORS).map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            {sortedCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label">Rating</label>
+          <label className="label">Min Rating</label>
           <select className="input" value={minRating} onChange={(e) => setMinRating(e.target.value)}>
             <option value="">Rating</option>
             {[4.5, 4.0, 3.5, 3.0].map(r => <option key={r} value={r}>{r}+ Stars</option>)}
@@ -98,7 +126,7 @@ export default function Attractions() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card shadow-md">
         <DataTable columns={columns} data={filteredData} loading={loading} />
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getUserReviews, createReview, deleteReview } from '../api/reviews'
-// Փոխարինում ենք հին լոդերները նոր ֆունկցիայով
 import { getVisitedEntities } from '../api/resources' 
 import PageHeader from '../components/PageHeader'
 
@@ -11,16 +10,18 @@ const ENTITY_TYPES = [
 ]
 
 function getEntityId(type, entity) {
-  if (type === 'hotel')      return entity.hotel_id
-  if (type === 'attraction') return entity.attraction_id
-  return entity.restaurant_id
+  if (entity.entity_id) return entity.entity_id;
+  
+  if (type === 'hotel')      return entity.hotel_id;
+  if (type === 'attraction') return entity.attraction_id;
+  if (type === 'restaurant') return entity.restaurant_id;
+  
+  return null;
 }
 
 function getEntityLabel(type, entity) {
-  if (type === 'hotel') return `${entity.name}${entity.stars ? ` (${'⭐'.repeat(entity.stars)})` : ''}`
-  return entity.name
+  return entity.entity_name || entity.name || 'Unknown Name';
 }
-
 function Stars({ rating }) {
   return (
     <span>
@@ -53,20 +54,17 @@ export default function Reviews() {
     fetchReviews()
   }, [fetchReviews])
 
-  // Սա այն կարևոր հատվածն է, որը բերում է միայն այցելած տեղերը
   useEffect(() => {
     setForm((f) => ({ ...f, entity_id: '' }))
     setError('')
     setLoadingEntities(true)
     
-    // Կանչում ենք API-ն, որը Backend-ում JOIN է անում Trips-ի հետ
     getVisitedEntities(entityType)
       .then((data) => {
         setEntities(Array.isArray(data) ? data : [])
       })
       .catch((err) => {
         setEntities([])
-        // Եթե տվյալներ չկան, օգտատիրոջը տեղեկացնում ենք պատճառի մասին
         if (err.response?.status === 404 || err.response?.data?.message?.includes('not visited')) {
            console.log("No visited entities found");
         }
@@ -77,28 +75,31 @@ export default function Reviews() {
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value })
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!form.entity_id) {
-        setError('Please select a place you have visited.')
-        return
-    }
-    setError('')
-    setSubmitting(true)
-    try {
-      await createReview({
-        entity_type: entityType,
-        entity_id: parseInt(form.entity_id),
-        rating: parseInt(form.rating),
-        comment: form.comment,
-      })
-      setForm({ entity_id: '', rating: 5, comment: '' })
-      fetchReviews()
-    } catch (err) {
-      setError(err.response?.data || 'Failed to submit review.')
-    } finally {
-      setSubmitting(false)
-    }
+  e.preventDefault()
+  
+  if (!form.entity_id) {
+    setError('Please select a place you have visited.')
+    return
   }
+
+  setError('')
+  setSubmitting(true)
+  try {
+    await createReview({
+      entity_type: entityType,
+      entity_id: Number(form.entity_id), 
+      rating: form.rating,
+      comment: form.comment,
+    })
+    setForm({ entity_id: '', rating: 5, comment: '' })
+    fetchReviews()
+    alert("Review submitted successfully!")
+  } catch (err) {
+    setError(err.response?.data?.message || 'Failed to submit review.')
+  } finally {
+    setSubmitting(false)
+  }
+}
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this review?')) return
@@ -254,8 +255,8 @@ export default function Reviews() {
                       <div className="flex items-center gap-2">
                         <span className="text-xl flex-shrink-0">{typeInfo?.icon ?? '📌'}</span>
                         <span className="font-semibold text-gray-900 truncate">
-                          {rev.entity_name || `Unknown ${rev.entity_type}`}
-                        </span>
+                        {rev.entity_name || `${rev.entity_type} #${rev.entity_id}`}
+                      </span>
                       </div>
                       <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                         {rev.entity_type} ID: {rev.entity_id}

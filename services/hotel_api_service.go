@@ -153,7 +153,6 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 			Stars:         stars,
 			Rating:        rating,
 			PricePerNight: price,
-			Phone:         el.Tags["contact:phone"],
 			Website:       website,
 			Description:   description,
 			CreatedAt:     time.Now(),

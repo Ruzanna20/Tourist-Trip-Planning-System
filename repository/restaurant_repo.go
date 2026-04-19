@@ -165,15 +165,19 @@ func (r *RestaurantRepository) GetBestRestaurantByTier(cityID int, tier string) 
 }
 
 func (r *RestaurantRepository) GetVisitedRestaurants(userID int) ([]models.Restaurant, error) {
+	slog.Info("Executing SQL for visited restaurants", "user_id", userID)
+
 	query := `
-        SELECT DISTINCT restaurant_id, city_id, name, cuisine, rating
-        FROM restaurants 
-        JOIN trip_itinerary  ON restaurant_id = restaurant_id
-        JOIN trips  ON trip_id = trip_id
-        WHERE user_id = $1`
+		SELECT DISTINCT r.restaurant_id, r.city_id, r.name, r.cuisine, r.rating
+		FROM restaurants r
+		JOIN itinerary_activities ia ON r.restaurant_id = ia.restaurant_id
+		JOIN trip_itinerary ti ON ia.itinerary_id = ti.itinerary_id
+		JOIN trips t ON ti.trip_id = t.trip_id
+		WHERE t.user_id = $1 AND t.status ILIKE 'completed'`
 
 	rows, err := r.db.Query(query, userID)
 	if err != nil {
+		slog.Error("Database error in GetVisitedRestaurants", "error", err, "user_id", userID)
 		return nil, err
 	}
 	defer rows.Close()
@@ -181,7 +185,14 @@ func (r *RestaurantRepository) GetVisitedRestaurants(userID int) ([]models.Resta
 	var restaurants []models.Restaurant
 	for rows.Next() {
 		var res models.Restaurant
-		if err := rows.Scan(&res.RestaurantID, &res.CityID, &res.Name, &res.Cuisine, &res.Rating); err != nil {
+		if err := rows.Scan(
+			&res.RestaurantID,
+			&res.CityID,
+			&res.Name,
+			&res.Cuisine,
+			&res.Rating,
+		); err != nil {
+			slog.Warn("Error scanning visited restaurant row", "error", err)
 			return nil, err
 		}
 		restaurants = append(restaurants, res)

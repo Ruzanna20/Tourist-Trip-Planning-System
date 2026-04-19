@@ -159,6 +159,16 @@ export default function MyTrips() {
                   >
                     View Itinerary
                   </Link>
+
+                  {trip.status?.toLowerCase() !== 'completed' && (
+                    <button
+                      onClick={() => handleUpdateStatus(trip.trip_id, 'Completed')}
+                      className="btn-secondary text-xs px-3 py-1"
+                    >
+                      Complete Trip
+                    </button>
+                  )}
+
                   <button
                     onClick={() => setConfirmTrip(trip)}
                     className="flex-shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"

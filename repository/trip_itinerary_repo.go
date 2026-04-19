@@ -51,25 +51,22 @@ func (r *TripItineraryRepository) Insert(tx *sql.Tx, itinerary *models.TripItine
 }
 
 func (r *TripItineraryRepository) GetItineraryDaysByTripID(tripID int) ([]*models.TripItinerary, error) {
-	slog.Info("Fetching itinerary days", "trip_id", tripID)
-
-	query := `SELECT itinerary_id, trip_id, day_number, notes, date, created_at
-              FROM trip_itinerary 
-              WHERE trip_id = $1 
-              ORDER BY day_number ASC`
+	query := `
+        SELECT ti.itinerary_id, ti.trip_id, ti.day_number, ti.notes, ti.date, ti.created_at, t.status
+        FROM trip_itinerary ti
+        JOIN trips t ON ti.trip_id = t.trip_id
+        WHERE ti.trip_id = $1 
+        ORDER BY ti.day_number ASC`
 
 	rows, err := r.db.Query(query, tripID)
 	if err != nil {
-		slog.Error("Error querying trip itinerary days", "trip_id", tripID, "error", err)
-		return nil, fmt.Errorf("error querying trip itinerary days: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
 	var days []*models.TripItinerary
-
 	for rows.Next() {
 		day := &models.TripItinerary{}
-
 		err := rows.Scan(
 			&day.ItineraryID,
 			&day.TripID,
@@ -77,20 +74,13 @@ func (r *TripItineraryRepository) GetItineraryDaysByTripID(tripID int) ([]*model
 			&day.Notes,
 			&day.Date,
 			&day.CreatedAt,
+			&day.TripStatus,
 		)
-
 		if err != nil {
-			slog.Warn("Error scanning trip itinerary row", "error", err)
+			slog.Error("Scan error", "error", err)
 			continue
 		}
 		days = append(days, day)
 	}
-
-	if err = rows.Err(); err != nil {
-		slog.Error("Rows iteration error in GetItineraryDaysByTripID", "error", err)
-		return nil, fmt.Errorf("rows iteration error: %w", err)
-	}
-
-	slog.Debug("Itinerary days fetched successfully", "trip_id", tripID, "count", len(days))
 	return days, nil
 }

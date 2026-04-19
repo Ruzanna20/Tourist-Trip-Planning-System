@@ -110,9 +110,9 @@ export default function Itinerary() {
         const list = Array.isArray(data) ? data : []
         setDays(list)
 
-        if (list.length > 0 && list[0].trip_status === 'Completed') {
-          setIsCompleted(true)
-        }
+      if (list.length > 0 && list[0].trip_status?.toLowerCase() === 'completed') {
+        setIsCompleted(true)
+      }
 
         const activitiesPromises = list.map(day => 
           getItineraryActivities(day.Itinerary_id)

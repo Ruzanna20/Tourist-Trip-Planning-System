@@ -15,15 +15,23 @@ export default function Cities() {
     setLoading(true)
     Promise.all([getCities(), getCountries()])
       .then(([citiesData, countriesData]) => {
-        setCities(citiesData || [])
-        setCountries(countriesData || [])
+        const sortedCities = (citiesData || []).sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+
+        const sortedCountries = (countriesData || []).sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+
+        setCities(sortedCities);
+        setCountries(sortedCountries);
       })
       .catch(err => {
-        console.error("Error loading cities data:", err)
-        setError("Failed to load cities or countries.")
+        console.error("Error loading cities data:", err);
+        setError("Failed to load cities or countries.");
       })
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredCities = cities.filter(city => {
     const matchesCountry = selectedCountryId ? city.country_id === parseInt(selectedCountryId) : true

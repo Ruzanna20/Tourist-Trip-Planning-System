@@ -23,3 +23,6 @@ export const getItineraryActivities = (itineraryId) =>
 
 export const completeTrip = (tripId) => 
   client.post(`/api/trips/${tripId}/complete`).then((r) => r.data)
+
+export const getVisitedEntities = (type) => 
+  client.get(`/api/users/me/visited?type=${type}`).then((r) => r.data);

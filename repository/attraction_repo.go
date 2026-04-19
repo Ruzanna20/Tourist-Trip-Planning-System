@@ -154,14 +154,16 @@ func (s *AttractionRepository) GetBestAttractionsByTier(cityID int, budgetLimit 
 
 func (r *AttractionRepository) GetVisitedAttractions(userID int) ([]models.Attraction, error) {
 	query := `
-        SELECT DISTINCT attraction_id, city_id, name, category, rating
-        FROM attractions 
-        JOIN trip_itinerary  ON attraction_id = attraction_id
-        JOIN trips  ON trip_id = trip_id
-        WHERE user_id = $1`
+		SELECT DISTINCT a.attraction_id, a.city_id, a.name, a.category, a.rating
+		FROM attractions a
+		JOIN itinerary_activities ia ON a.attraction_id = ia.attraction_id
+		JOIN trip_itinerary ti ON ia.itinerary_id = ti.itinerary_id
+		JOIN trips t ON ti.trip_id = t.trip_id
+		WHERE t.user_id = $1 AND t.status = 'Completed'`
 
 	rows, err := r.db.Query(query, userID)
 	if err != nil {
+		slog.Error("Database error in GetVisitedAttractions", "error", err, "user_id", userID)
 		return nil, err
 	}
 	defer rows.Close()
@@ -169,7 +171,14 @@ func (r *AttractionRepository) GetVisitedAttractions(userID int) ([]models.Attra
 	var attractions []models.Attraction
 	for rows.Next() {
 		var a models.Attraction
-		if err := rows.Scan(&a.AttractionID, &a.CityID, &a.Name, &a.Category, &a.Rating); err != nil {
+		if err := rows.Scan(
+			&a.AttractionID,
+			&a.CityID,
+			&a.Name,
+			&a.Category,
+			&a.Rating,
+		); err != nil {
+			slog.Warn("Error scanning visited attraction row", "error", err)
 			return nil, err
 		}
 		attractions = append(attractions, a)

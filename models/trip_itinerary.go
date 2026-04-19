@@ -9,4 +9,5 @@ type TripItinerary struct {
 	Notes       string    `json:"notes" db:"notes"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 	Date        time.Time `json:"date" db:"date"`
+	TripStatus  string    `json:"trip_status"`
 }

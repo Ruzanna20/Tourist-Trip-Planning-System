@@ -10,7 +10,6 @@ type Hotel struct {
 	Stars         int       `json:"stars" db:"stars"`
 	Rating        float64   `json:"rating" db:"rating"`
 	PricePerNight float64   `json:"price_per_night" db:"price_per_night"`
-	Phone         string    `json:"phone" db:"phone"`
 	Website       string    `json:"website" db:"website"`
 	Description   string    `json:"description" db:"description"`
 	CreatedAt     time.Time `json:"-" db:"created_at"`

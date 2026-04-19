@@ -19,15 +19,23 @@ export default function Hotels() {
     setLoading(true)
     Promise.all([getHotels(), getCities()])
       .then(([hotelsData, citiesData]) => {
-        setHotels(hotelsData || [])
-        setCities(citiesData || [])
+        const sortedHotels = (hotelsData || []).sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+        
+        const sortedCities = (citiesData || []).sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+
+        setHotels(sortedHotels);
+        setCities(sortedCities);
       })
       .catch(err => {
-        console.error("Error loading hotels:", err)
-        setError("Failed to load hotel data.")
+        console.error("Error loading hotels:", err);
+        setError("Failed to load hotel data.");
       })
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredHotels = hotels.filter(hotel => {
     const matchesSearch = hotel.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -49,7 +57,7 @@ export default function Hotels() {
       key: 'stars', 
       label: 'Stars', 
       render: (val) => (
-        <span className="text-yellow-500 font-bold">
+        <span className="text-yellow-500 font-bold whitespace-nowrap">
           {'★'.repeat(val)}{'☆'.repeat(5 - val)}
         </span>
       )
@@ -65,24 +73,42 @@ export default function Hotels() {
     },
     { 
       key: 'price_per_night', 
-      label: 'Price per Night', 
+      label: 'Price', 
       render: (val) => <span className="font-semibold text-brand-700">${val.toLocaleString()}</span>
-    }
+    },
+    { 
+      key: 'website', 
+      label: 'Information', 
+      render: (url) => {
+        if (!url) return <span className="text-gray-400 italic text-xs">No info</span>;
+        const href = url.startsWith('http') ? url : `https://${url}`;
+        return (
+          <a 
+            href={href} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="inline-flex items-center px-3 py-1 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors border border-amber-200 font-medium text-xs"
+          >
+            View Website ↗
+          </a>
+        );
+      }
+    },
   ]
 
   if (error) return <div className="p-8 text-red-600 font-medium">{error}</div>
 
   return (
     <div>
-      <PageHeader icon="🏨" title="Hotels" subtitle="Manage accommodations and pricing" />
+      <PageHeader icon="🏨" title="Hotels" subtitle={loading ? 'Searching...' : `${filteredHotels.length} accommodations available`} />
 
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>
           <label className="label">Search Hotel</label>
           <input 
             type="text" 
             className="input" 
-            placeholder="Hotel name..." 
+            placeholder="Name..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -105,7 +131,7 @@ export default function Hotels() {
         </div>
 
         <div>
-          <label className="label">Rating</label>
+          <label className="label">Min Rating</label>
           <select className="input" value={minRating} onChange={(e) => setMinRating(e.target.value)}>
             <option value="">Rating</option>
             {[9, 8, 7, 6].map(r => <option key={r} value={r}>{r}+ Exceptional</option>)}
@@ -117,14 +143,14 @@ export default function Hotels() {
           <input 
             type="number" 
             className="input" 
-            placeholder="Max price..." 
+            placeholder="Max budget..." 
             value={maxPrice} 
             onChange={(e) => setMaxPrice(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="card">
+      <div className="card shadow-lg">
         <DataTable columns={columns} data={filteredHotels} loading={loading} />
       </div>
     </div>

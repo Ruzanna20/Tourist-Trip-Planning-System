@@ -24,8 +24,12 @@ export default function Flights() {
     setLoading(true)
     Promise.all([getFlights(), getCities()])
       .then(([flightsData, citiesData]) => {
+        const sortedCities = (citiesData || []).sort((a, b) => 
+          a.name.localeCompare(b.name)
+        );
+        
         setFlights(flightsData || [])
-        setCities(citiesData || [])
+        setCities(sortedCities)
       })
       .catch(err => {
         console.error("Error loading flights:", err)
@@ -72,10 +76,29 @@ export default function Flights() {
       key: 'price', 
       label: 'Price', 
       render: (val) => <span className="font-bold text-green-700">${val.toLocaleString()}</span>
+    },
+    { 
+      key: 'website', 
+      label: 'Data Source', 
+      render: (url) => {
+        if (!url) return '—';
+        const href = url.startsWith('http') ? url : `https://${url}`;
+        return (
+          <a 
+            href={href} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="inline-flex items-center px-3 py-1 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 font-medium text-xs"
+          >
+            <span>Visit {url}</span>
+            <span className="ml-1 text-[10px]">↗</span>
+          </a>
+        );
+      }
     }
   ]
 
-  if (error) return <div className="p-8 text-red-600">{error}</div>
+  if (error) return <div className="p-8 text-red-600 font-medium">{error}</div>
 
   return (
     <div>
@@ -103,14 +126,14 @@ export default function Flights() {
           <input 
             type="number" 
             className="input" 
-            placeholder="e.g. 500" 
+            placeholder="Max price..." 
             value={maxPrice} 
             onChange={(e) => setMaxPrice(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="card">
+      <div className="card shadow-md overflow-hidden">
         <DataTable columns={columns} data={filteredFlights} loading={loading} />
       </div>
     </div>

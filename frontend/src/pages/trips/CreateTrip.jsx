@@ -55,20 +55,18 @@ export default function CreateTrip() {
     setError('')
     setLoading(true)
 
-    // 1. Հաշվարկում ենք ամսաթվերը, որ Backend-ը սխալ չտա
     let startDate = form.start_date
     let endDate = form.end_date
     let duration = parseInt(form.duration)
 
     if (timeMode === 'duration') {
-      const start = new Date() // Այսօր
+      const start = new Date() 
       const end = new Date()
       end.setDate(start.getDate() + duration)
       
       startDate = start.toISOString().split('T')[0]
       endDate = end.toISOString().split('T')[0]
     } else {
-      // Եթե Dates ռեժիմն է, հաշվարկում ենք duration-ը ամսաթվերի տարբերությամբ
       const s = new Date(startDate)
       const e = new Date(endDate)
       duration = Math.ceil((e - s) / (1000 * 60 * 60 * 24))
@@ -121,7 +119,6 @@ export default function CreateTrip() {
         subtitle={step === 1 ? 'Fill in your trip details' : 'Choose your travel package'}
       />
 
-      {/* --- Step Indicator (Սրա մասին էիր ասում) --- */}
       <div className="flex items-center justify-center gap-6 mb-10 mt-4">
         {[
           { n: 1, label: 'Trip Details' },

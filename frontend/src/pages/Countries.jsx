@@ -21,7 +21,7 @@ export default function Countries() {
         );
         setData(sortedData);
       })
-      .catch(() => setError('Failed to load attractions.'))
+      .catch(() => setError('Failed to load countries.'))
       .finally(() => setLoading(false))
   }, [])
 
