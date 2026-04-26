@@ -14,6 +14,7 @@ export default function Flights() {
   const [fromCityId, setFromCityId] = useState('')
   const [toCityId, setToCityId] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   const formatDuration = (minutes) => {
     if (!minutes) return '—'
@@ -26,6 +27,13 @@ export default function Flights() {
     setLoading(true)
     Promise.all([getFlights(), getCities()])
       .then(([flightsData, citiesData]) => {
+        if (flightsData && flightsData.length > 0) {
+          const latest = flightsData.reduce((prev, current) => 
+            (new Date(prev.updated_at) > new Date(current.updated_at)) ? prev : current
+          );
+          setLastUpdated(latest.updated_at);
+        }
+
         const sortedCities = (citiesData || []).sort((a, b) => 
           a.name.localeCompare(b.name)
         );
@@ -108,6 +116,18 @@ export default function Flights() {
       title={t('nav.flights')}
       subtitle={t('flights.subtitle')} 
       />
+
+      {lastUpdated && (
+          <div className="mb-4 md:mb-6 flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-full shadow-sm w-fit transition-all hover:border-slate-200">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              {t('common.last_updated')} {new Date(lastUpdated).toLocaleString()}
+            </span>
+          </div>
+        )}
 
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>

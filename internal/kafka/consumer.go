@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"time"
 	"travel-planning/internal/notifications"
 	"travel-planning/models"
 
@@ -14,24 +15,36 @@ type TripProcessor interface {
 	GetTripByID(id int) (*models.Trip, error)
 	GenerateOptions(tripID int) ([]models.TripOption, error)
 	FinalizeTripPlan(tripID int, tier string, hotelID int, outboundID int, inboundID int) error
-	SaveNotification(userID int, tripID int, message string, msgType string) error
+}
+
+type NotificationProcessor interface {
+	CreateNotification(userID int, tripID int, message string, msgType string) (int, error)
 }
 
 type Consumer struct {
-	reader  *kafka.Reader
-	service TripProcessor
-	hub     *notifications.Hub
+	reader       *kafka.Reader
+	tripService  TripProcessor
+	notifService NotificationProcessor
+	hub          *notifications.Hub
 }
 
-func NewConsumer(brokers []string, topic string, groupID string, service TripProcessor, hub *notifications.Hub) *Consumer {
+func NewConsumer(
+	brokers []string,
+	topic string,
+	groupID string,
+	tripService TripProcessor,
+	notifService NotificationProcessor,
+	hub *notifications.Hub,
+) *Consumer {
 	return &Consumer{
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers: brokers,
 			Topic:   topic,
 			GroupID: groupID,
 		}),
-		service: service,
-		hub:     hub,
+		tripService:  tripService,
+		notifService: notifService,
+		hub:          hub,
 	}
 }
 
@@ -51,22 +64,42 @@ func (c *Consumer) Start(ctx context.Context) {
 			continue
 		}
 
-		tripID := int(event["trip_id"].(float64))
-		userID := int(event["user_id"].(float64))
+		tripIDVal, ok1 := event["trip_id"].(float64)
+		userIDVal, ok2 := event["user_id"].(float64)
+		if !ok1 || !ok2 {
+			slog.Error("Invalid event payload: missing trip_id or user_id")
+			continue
+		}
+
+		tripID := int(tripIDVal)
+		userID := int(userIDVal)
 
 		slog.Info("Consumer picked up trip request", "trip_id", tripID)
 
-		_, err = c.service.GenerateOptions(tripID)
+		slog.Debug("Attempting to generate options...", "trip_id", tripID)
+		_, err = c.tripService.GenerateOptions(tripID)
 		if err == nil {
-			msg := "Ձեր ուղևորության տարբերակները պատրաստ են։ Նայեք մանրամասները այստեղ։"
+			msg := "Your trip options are ready. Check the details here."
 
-			errNotify := c.service.SaveNotification(userID, tripID, msg, "TRIP_READY")
-			if errNotify != nil {
-				slog.Error("Failed to persist notification", "error", errNotify)
+			slog.Info("Options generated, saving notification...", "trip_id", tripID)
+			notificationID, errNotify := c.notifService.CreateNotification(userID, tripID, msg, "TRIP_READY")
+
+			if errNotify == nil {
+				payload := map[string]interface{}{
+					"id":         notificationID,
+					"message":    msg,
+					"trip_id":    tripID,
+					"type":       "TRIP_READY",
+					"is_read":    false,
+					"created_at": time.Now().Format(time.RFC3339),
+				}
+				data, _ := json.Marshal(payload)
+				c.hub.SendNotification(userID, string(data), tripID)
+			} else {
+				slog.Error("Failed to save notification via NotificationService", "error", errNotify)
 			}
-
-			c.hub.SendNotification(userID, msg, tripID)
-			slog.Info("Real-time notification saved and sent", "user_id", userID)
+		} else {
+			slog.Error("Failed to generate trip options", "trip_id", tripID, "error", err)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
 import { useAuth } from './AuthContext';
+import * as api from '../api/notifications'; 
 
 const NotificationContext = createContext();
 
@@ -11,39 +11,70 @@ export function NotificationProvider({ children }) {
 
     const fetchNotifications = async () => {
         try {
-            const res = await axios.get('/api/notifications');
-            setNotifications(res.data || []);
-            const unread = res.data.filter(n => !n.is_read).length;
-            setUnreadCount(unread);
+            const data = await api.getNotifications();
+            
+            if (data && Array.isArray(data)) {
+                setNotifications(data);
+                setUnreadCount(data.filter(n => !n.is_read).length);
+            } else {
+                setNotifications([]);
+                setUnreadCount(0);
+            }
         } catch (err) {
             console.error("Error fetching notifications", err);
+            setNotifications([]);
+            setUnreadCount(0);
         }
     };
 
     useEffect(() => {
-        if (isAuthenticated) fetchNotifications();
-    }, [isAuthenticated]);
+        const loadData = async () => {
+            const token = localStorage.getItem('token');
+            if (isAuthenticated && token) {
+                await fetchNotifications();
+            }
+        };
 
+        loadData();
+    }, [isAuthenticated]);
+    
     const markAsRead = async (id) => {
-    try {
-        // Նախ ուղարկում ենք API հարցումը
-        await axios.post(`/api/notifications/${id}/read`);
-        
-        // Հաջողության դեպքում թարմացնում ենք state-ը
-        setNotifications(prev => 
-            prev.map(n => n.id === id ? { ...n, is_read: true } : n)
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-        
-        return true; // Վերադարձնում ենք true, որ իմանանք՝ ավարտվեց
-    } catch (err) {
-        console.error("Error marking as read", err);
-        return false;
-    }
-};
+        try {
+            await api.markNotificationAsRead(id);
+            setNotifications(prev => 
+                prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+            );
+            setUnreadCount(prev => Math.max(0, prev - 1));
+            return true;
+        } catch (err) {
+            return false;
+        }
+    };
+
+    const deleteNotification = async (id) => {
+        try {
+            await api.deleteNotification(id); 
+            setNotifications(prev => prev.filter(n => n.id !== id));
+            setUnreadCount(prev => {
+                const wasUnread = notifications.find(n => n.id === id && !n.is_read);
+                return wasUnread ? Math.max(0, prev - 1) : prev;
+            });
+            return true;
+        } catch (err) {
+            console.error("Failed to delete", err);
+            return false;
+        }
+    };
 
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, setNotifications, setUnreadCount, markAsRead }}>
+        <NotificationContext.Provider value={{ 
+            notifications, 
+            unreadCount, 
+            setNotifications, 
+            setUnreadCount, 
+            markAsRead, 
+            deleteNotification 
+        }}>
             {children}
         </NotificationContext.Provider>
     );

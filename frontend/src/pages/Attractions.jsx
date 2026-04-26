@@ -18,6 +18,7 @@ export default function Attractions() {
   const [attractions, setAttractions] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState(null)
   
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCityId, setSelectedCityId] = useState('')
@@ -28,6 +29,13 @@ export default function Attractions() {
     setLoading(true)
     Promise.all([getAttractions(), getCities()])
       .then(([attractionsData, citiesData]) => {
+        if (attractionsData && attractionsData.length > 0) {
+          const latest = attractionsData.reduce((prev, current) => 
+            (prev.updated_at > current.updated_at) ? prev : current
+          );
+          setLastUpdated(latest.updated_at);
+        }
+
         const sortedAttractions = (attractionsData || []).sort((a, b) => 
           a.name.localeCompare(b.name)
         );
@@ -100,6 +108,18 @@ export default function Attractions() {
         title={t('nav.attractions')} 
         subtitle={t('attractions.subtitle')}
       />
+
+      {lastUpdated && (
+          <div className="mb-4 md:mb-6 flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-full shadow-sm w-fit">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              {t('common.last_updated')} {new Date(lastUpdated).toLocaleString()}
+            </span>
+          </div>
+        )}
 
       <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>

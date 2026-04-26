@@ -82,6 +82,7 @@ func main() {
 	hotelAPIService := services.NewHotelAPIService(cacheService)
 	restaurantAPIService := services.NewRestaurantAPIService(cacheService)
 	flightAPIService := services.NewFlightAPIService(amadeusService, cityRepo, cacheService)
+	notificationService := services.NewNotificationService(notificationRepo)
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
@@ -107,14 +108,13 @@ func main() {
 		attractionRepo,
 		restaurantRepo,
 		userPreferencesRepo,
-		notificationRepo,
 		kafkaProducer,
 		cacheService,
 	)
 
 	hub := notifications.NewHub()
 
-	kafkaConsumer := kafka.NewConsumer([]string{"kafka:9092"}, "trip-requests", "trip-service-group", tripPlanningService, hub)
+	kafkaConsumer := kafka.NewConsumer([]string{"kafka:9092"}, "trip-requests", "trip-service-group", tripPlanningService, notificationService, hub)
 	defer kafkaConsumer.Close()
 
 	go kafkaConsumer.Start(context.Background())
@@ -219,7 +219,7 @@ func main() {
 	resourceHandlers := handlers.NewResourceHandlers(resourceService)
 	reviewHandlers := handlers.NewReviewHandlers(reviewService)
 
-	notificationHandlers := handlers.NewNotificationHandlers(notificationRepo)
+	notificationHandlers := handlers.NewNotificationHandlers(notificationService)
 
 	tripHandlers := handlers.NewTripHandlers(tripPlanningService)
 

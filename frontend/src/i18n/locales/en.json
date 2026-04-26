@@ -10,7 +10,8 @@
     "delete": "Delete",
     "n_a": "N/A",
     "all_rights_reserved": "All rights reserved.",
-    "explore": "Explore"
+    "explore": "Explore",
+    "last_updated": "Last updated:"
   },
   "auth": {
     "login": {
@@ -58,7 +59,13 @@
     "account": "Account",
     "preferences": "Preferences",
     "write_review": "Write Review",
-    "logout": "Logout"
+    "logout": "Logout",
+    "notifications": "Notifications",
+    "empty": "No notifications yet",
+    "new": "new",
+    "delete": "Delete",
+    "mark_all_read": "Mark all as read",
+    "trip_ready": "Your trip options are ready. Check them out and choose the one you like the most."
   },
   "dashboard": {
     "hero": {

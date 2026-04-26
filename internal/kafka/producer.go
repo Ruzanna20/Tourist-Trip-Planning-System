@@ -23,7 +23,7 @@ func NewProducer(broker string) *Producer {
 	}
 }
 
-func (p *Producer) PublishTripReques(ctx context.Context, tripID int, userID int, cityID int) error {
+func (p *Producer) PublishTripRequest(ctx context.Context, tripID int, userID int, cityID int) error {
 	event := map[string]interface{}{
 		"type":       "generate_itinerary",
 		"trip_id":    tripID,

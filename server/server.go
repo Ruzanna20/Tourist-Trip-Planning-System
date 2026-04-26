@@ -73,6 +73,12 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/restaurants", authMiddleware(s.ResourceHandlers.GetAllRestaurantssHandler)).Methods("GET")
 	r.HandleFunc("/api/flights", authMiddleware(s.ResourceHandlers.GetAllFlightsHandler)).Methods("GET")
 
+	// Notifications
+	r.HandleFunc("/api/notifications", authMiddleware(s.NotificationHandlers.GetMyNotifications)).Methods("GET")
+	r.HandleFunc("/api/notifications/{id}/read", authMiddleware(s.NotificationHandlers.MarkAsRead)).Methods("POST")
+	r.HandleFunc("/api/notifications/unread-count", authMiddleware(s.NotificationHandlers.GetUnreadCount)).Methods("GET")
+	r.HandleFunc("/api/notifications/{id}", authMiddleware(s.NotificationHandlers.DeleteNotification)).Methods("DELETE")
+
 	// Reviews
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.GetUserReviewsHandler)).Methods("GET")
 	r.HandleFunc("/api/reviews", authMiddleware(s.ReviewHandlers.CreateReviewHandler)).Methods("POST")
@@ -98,11 +104,6 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/register", s.UserHandlers.RegisterUserHandler).Methods("POST")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.GetPreferencesHandler)).Methods("GET")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
-
-	// Notifications
-	r.HandleFunc("/api/notifications", authMiddleware(s.NotificationHandlers.GetMyNotifications)).Methods("GET")
-	r.HandleFunc("/api/notifications/{id}/read", authMiddleware(s.NotificationHandlers.MarkAsRead)).Methods("POST")
-	r.HandleFunc("/api/notifications/unread-count", authMiddleware(s.NotificationHandlers.GetUnreadCount)).Methods("GET")
 
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		userIDStr := r.URL.Query().Get("userID")

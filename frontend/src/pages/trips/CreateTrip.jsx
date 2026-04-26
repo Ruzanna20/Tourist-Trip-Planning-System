@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { createTrip, generateTripOptions, selectTripOption } from '../../api/trips'
 import { getCities, getCountries } from '../../api/resources'
@@ -8,8 +9,9 @@ import PageHeader from '../../components/PageHeader'
 export default function CreateTrip() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [step, setStep] = useState(1)
-  const [tripId, setTripId] = useState(null)
+  const { id: urlTripId } = useParams()
+  const [step, setStep] = useState(urlTripId ? 2 : 1)
+  const [tripId, setTripId] = useState(urlTripId ? parseInt(urlTripId) : null)
   const [countries, setCountries] = useState([])
   const [cities, setCities] = useState([])
   const [filteredCities, setFilteredCities] = useState([])
@@ -35,6 +37,21 @@ export default function CreateTrip() {
   })
 
   useEffect(() => {
+    if (urlTripId) {
+      setTripId(parseInt(urlTripId));
+      setLoading(true);
+      generateTripOptions(urlTripId)
+      .then(opts => {
+        setOptions(Array.isArray(opts) ? opts : []);
+        setStep(2); 
+      })
+      .catch(() => setError(t('trips.error_load_options')))
+      .finally(() => setLoading(false));
+    }
+  }, [urlTripId, t]);
+
+  useEffect(() => {
+
   Promise.all([getCountries(), getCities()])
     .then(([countriesData, citiesData]) => {
       const sortedCountries = (countriesData || []).sort((a, b) => 

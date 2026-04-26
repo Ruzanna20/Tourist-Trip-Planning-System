@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext'; // Նոր context-ը
 import toast, { Toaster } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
@@ -21,10 +22,11 @@ import Flights from './pages/Flights';
 import Preferences from './pages/Preferences';
 import Reviews from './pages/Reviews';
 
-// WebSocketListener կոմպոնենտ
 function WebSocketListener() {
   const { user } = useAuth();
-  const { setNotifications, setUnreadCount } = useNotifications(); // Օգտագործում ենք notification-ների state-ը
+  const { setNotifications, setUnreadCount } = useNotifications(); 
+  const { t } = useTranslation();
+
 
   useEffect(() => {
     if (!user) return;
@@ -34,15 +36,20 @@ function WebSocketListener() {
 
     const socket = new WebSocket(`ws://localhost:8080/ws?userID=${userID}`);
 
-    socket.onopen = () => console.log("✅ WS Connected for Notifications");
-
     socket.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const rawData = JSON.parse(event.data);
 
-        if (data.type === 'TRIP_READY') {
-          // 1. Ցույց տալ Toast ծանուցումը
-          toast.success(data.message, {
+        let finalData = rawData;
+        if (typeof rawData.message === 'string' && rawData.message.startsWith('{')) {
+            const parsedInner = JSON.parse(rawData.message);  
+            finalData = { ...rawData, ...parsedInner };
+        }
+        
+        if (finalData.type === 'TRIP_READY') {
+          const translatedMessage = t('nav.trip_ready');
+
+          toast.success(translatedMessage, {
             duration: 8000,
             position: 'top-right',
             icon: '✈️',
@@ -55,11 +62,11 @@ function WebSocketListener() {
             },
           });
 
-          // 2. Իրական ժամանակում ավելացնել նոր նամակը ցուցակի մեջ (UI-ի համար)
           const newNotification = {
-            id: data.id || Date.now(), // Բեքենդից եկող ID-ն կամ ժամանակավոր
-            message: data.message,
-            trip_id: data.trip_id,
+            id: finalData.id, 
+            message: translatedMessage,
+            trip_id: finalData.trip_id,
+            trip_title: finalData.trip_title,
             is_read: false,
             created_at: new Date().toISOString()
           };
@@ -72,9 +79,6 @@ function WebSocketListener() {
       }
     };
 
-    socket.onerror = (err) => console.error("❌ WS Error:", err);
-    socket.onclose = () => console.log("🔌 WS Disconnected");
-
     return () => {
       if (socket.readyState === 1) socket.close();
     };
@@ -86,9 +90,7 @@ function WebSocketListener() {
 export default function App() {
   return (
     <BrowserRouter>
-      {/* AuthProvider-ը պետք է լինի ամենավերևում */}
       <AuthProvider>
-        {/* NotificationProvider-ը դնում ենք Auth-ի ներսում, որպեսզի այն կարողանա օգտվել useAuth-ից */}
         <NotificationProvider>
           <Toaster />
           <WebSocketListener />
@@ -109,6 +111,7 @@ export default function App() {
               <Route path="/trips" element={<MyTrips />} />
               <Route path="/trips/create" element={<CreateTrip />} />
               <Route path="/trips/:id/itinerary" element={<Itinerary />} />
+              <Route path="/trips/:id/options" element={<CreateTrip />} />
               <Route path="/countries" element={<Countries />} />
               <Route path="/cities" element={<Cities />} />
               <Route path="/attractions" element={<Attractions />} />

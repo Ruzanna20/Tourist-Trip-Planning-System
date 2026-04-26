@@ -12,11 +12,19 @@ export default function Cities() {
   const [searchTerm, setSearchTerm] = useState('') 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   useEffect(() => {
     setLoading(true)
     Promise.all([getCities(), getCountries()])
       .then(([citiesData, countriesData]) => {
+        if (citiesData && citiesData.length > 0) {
+          const latest = citiesData.reduce((prev, current) => 
+            (new Date(prev.updated_at) > new Date(current.updated_at)) ? prev : current
+          );
+          setLastUpdated(latest.updated_at);
+        }
+
         const sortedCities = (citiesData || []).sort((a, b) => 
           a.name.localeCompare(b.name)
         );
@@ -64,6 +72,17 @@ export default function Cities() {
         title={t('nav.cities')} 
         subtitle={t('cities.subtitle')}
       />
+      {lastUpdated && (
+          <div className="mb-4 md:mb-6 flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-full shadow-sm w-fit transition-all hover:border-slate-200">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              {t('common.last_updated')} {new Date(lastUpdated).toLocaleString()}
+            </span>
+          </div>
+        )}
 
       <div className="mb-6 flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div className="w-full max-w-xs">
@@ -75,7 +94,7 @@ export default function Cities() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
+      </div>
 
         <div className="w-full max-w-xs">
           <label className="label">{t('cities.filter.country')}</label>

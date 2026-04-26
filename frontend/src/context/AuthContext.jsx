@@ -1,13 +1,12 @@
 import { createContext, useContext, useState } from 'react'
 import { login as loginApi } from '../api/auth'
-import { jwtDecode } from 'jwt-decode' // Ավելացրու սա
+import { jwtDecode } from 'jwt-decode' 
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   
-  // Հաշվարկում ենք user-ի տվյալները token-ից
   const user = token ? jwtDecode(token) : null;
 
   const login = async (username, password) => {

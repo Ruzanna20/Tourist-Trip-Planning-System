@@ -10,10 +10,13 @@ import (
 	"strings"
 	"time"
 	"travel-planning/internal/cache"
-	"travel-planning/internal/kafka"
 	"travel-planning/models"
 	"travel-planning/repository"
 )
+
+type EventProducer interface {
+	PublishTripRequest(ctx context.Context, tripID int, userID int, cityID int) error
+}
 
 type TripPlanningService struct {
 	TripRepo                *repository.TripRepository
@@ -27,9 +30,7 @@ type TripPlanningService struct {
 
 	UserPreferencesRepo *repository.UserPreferencesRepository
 
-	NotificationRepo *repository.NotificationRepository
-
-	KafkaProducer *kafka.Producer
+	Producer EventProducer
 
 	Cache *cache.RedisCache
 }
@@ -43,8 +44,7 @@ func NewTripPlanningService(
 	attractionRepo *repository.AttractionRepository,
 	restaurantRepo *repository.RestaurantRepository,
 	userPreferencesRepo *repository.UserPreferencesRepository,
-	notificationRepo *repository.NotificationRepository,
-	KafkaProducer *kafka.Producer,
+	Producer EventProducer,
 	cache *cache.RedisCache) *TripPlanningService {
 	return &TripPlanningService{
 		TripRepo:                tripRepo,
@@ -55,17 +55,9 @@ func NewTripPlanningService(
 		AttractionRepo:          attractionRepo,
 		RestaurantRepo:          restaurantRepo,
 		UserPreferencesRepo:     userPreferencesRepo,
-		NotificationRepo:        notificationRepo,
-		KafkaProducer:           KafkaProducer,
+		Producer:                Producer,
 		Cache:                   cache,
 	}
-}
-
-func (s *TripPlanningService) SaveNotification(userID int, tripID int, message string, msgType string) error {
-	if s.NotificationRepo == nil {
-		return fmt.Errorf("notification repository not initialized")
-	}
-	return s.NotificationRepo.SaveNotification(userID, tripID, message, msgType)
 }
 
 func (s *TripPlanningService) GenerateOptions(tripID int) ([]models.TripOption, error) {
@@ -222,8 +214,8 @@ func (s *TripPlanningService) PlanTrip(userID int, req models.TripPlanRequest) (
 		l.Error("Failed to commit transaction", "error", err)
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	if s.KafkaProducer != nil {
-		go s.KafkaProducer.PublishTripReques(context.Background(), tripID, userID, req.ToCityID)
+	if s.Producer != nil {
+		go s.Producer.PublishTripRequest(context.Background(), tripID, userID, req.ToCityID)
 	}
 
 	return tripID, nil
@@ -340,29 +332,18 @@ func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 
 func (s *TripPlanningService) saveActivity(tx *sql.Tx, itineraryID int64, aType string, entityID int, order int, allAttractions []models.Attraction, dayDate time.Time) {
 	aType = strings.ToLower(aType)
-
 	year, month, day := dayDate.Date()
-	location := dayDate.Location()
+	loc := dayDate.Location()
+
+	startHours := []int{10, 13, 16, 20}
+	endHours := []int{12, 15, 18, 21}
 
 	var startTime, endTime time.Time
-	switch order {
-	case 0:
-		startTime = time.Date(year, month, day, 9, 0, 0, 0, location)
-		endTime = startTime.Add(2 * time.Hour)
-	case 1:
-		startTime = time.Date(year, month, day, 11, 30, 0, 0, location)
-		endTime = startTime.Add(1*time.Hour + 30*time.Minute)
-	case 2:
-		startTime = time.Date(year, month, day, 14, 0, 0, 0, location)
-		endTime = startTime.Add(1 * time.Hour)
-	case 3:
-		startTime = time.Date(year, month, day, 16, 0, 0, 0, location)
-		endTime = startTime.Add(2 * time.Hour)
-	case 4:
-		startTime = time.Date(year, month, day, 19, 0, 0, 0, location)
-		endTime = startTime.Add(2 * time.Hour)
-	default:
-		startTime = time.Date(year, month, day, 21, 0, 0, 0, location)
+	if order >= 0 && order < len(startHours) {
+		startTime = time.Date(year, month, day, startHours[order], 0, 0, 0, loc)
+		endTime = time.Date(year, month, day, endHours[order], 0, 0, 0, loc)
+	} else {
+		startTime = time.Date(year, month, day, 22, 0, 0, 0, loc)
 		endTime = startTime.Add(1 * time.Hour)
 	}
 
