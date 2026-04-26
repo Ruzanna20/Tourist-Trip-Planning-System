@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next' 
 
 export default function DataTable({ columns, data, searchKeys = [] }) {
   const [query, setQuery] = useState('')
+  const { t } = useTranslation() 
 
   const filtered = query
     ? data.filter((row) =>
@@ -17,13 +19,15 @@ export default function DataTable({ columns, data, searchKeys = [] }) {
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Search…"
+            placeholder={t('common.search')} 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="input max-w-xs"
           />
           {query && (
-            <span className="text-sm text-gray-500">{filtered.length} result(s)</span>
+            <span className="text-sm text-gray-500">
+              {filtered.length} {t('common.results')} 
+            </span>
           )}
         </div>
       )}
@@ -37,7 +41,7 @@ export default function DataTable({ columns, data, searchKeys = [] }) {
                   key={col.key}
                   className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap"
                 >
-                  {col.label}
+                  {col.label} 
                 </th>
               ))}
             </tr>
@@ -46,7 +50,7 @@ export default function DataTable({ columns, data, searchKeys = [] }) {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400">
-                  No records found.
+                  {t('common.no_records')} 
                 </td>
               </tr>
             ) : (
@@ -63,7 +67,9 @@ export default function DataTable({ columns, data, searchKeys = [] }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-gray-400">{filtered.length} of {data.length} records</p>
+      <p className="text-xs text-gray-400">
+        {filtered.length} {t('common.of')} {data.length} {t('common.records')}
+      </p>
     </div>
   )
 }

@@ -1,55 +1,128 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
-import ProtectedRoute from './components/ProtectedRoute'
-import Layout from './components/Layout'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
-import MyTrips from './pages/MyTrips'
-import CreateTrip from './pages/trips/CreateTrip'
-import Itinerary from './pages/trips/Itinerary'
-import Countries from './pages/Countries'
-import Cities from './pages/Cities'
-import Attractions from './pages/Attractions'
-import Hotels from './pages/Hotels'
-import Restaurants from './pages/Restaurants'
-import Flights from './pages/Flights'
-import Preferences from './pages/Preferences'
-import Reviews from './pages/Reviews'
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider, useNotifications } from './context/NotificationContext'; // Նոր context-ը
+import toast, { Toaster } from 'react-hot-toast';
+
+import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import MyTrips from './pages/MyTrips';
+import CreateTrip from './pages/trips/CreateTrip';
+import Itinerary from './pages/trips/Itinerary';
+import Countries from './pages/Countries';
+import Cities from './pages/Cities';
+import Attractions from './pages/Attractions';
+import Hotels from './pages/Hotels';
+import Restaurants from './pages/Restaurants';
+import Flights from './pages/Flights';
+import Preferences from './pages/Preferences';
+import Reviews from './pages/Reviews';
+
+// WebSocketListener կոմպոնենտ
+function WebSocketListener() {
+  const { user } = useAuth();
+  const { setNotifications, setUnreadCount } = useNotifications(); // Օգտագործում ենք notification-ների state-ը
+
+  useEffect(() => {
+    if (!user) return;
+
+    const userID = user.user_id || user.sub;
+    if (!userID) return;
+
+    const socket = new WebSocket(`ws://localhost:8080/ws?userID=${userID}`);
+
+    socket.onopen = () => console.log("✅ WS Connected for Notifications");
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'TRIP_READY') {
+          // 1. Ցույց տալ Toast ծանուցումը
+          toast.success(data.message, {
+            duration: 8000,
+            position: 'top-right',
+            icon: '✈️',
+            style: {
+              background: '#0f172a',
+              color: '#fff',
+              border: '2px solid #3b82f6',
+              borderRadius: '12px',
+              fontWeight: '500'
+            },
+          });
+
+          // 2. Իրական ժամանակում ավելացնել նոր նամակը ցուցակի մեջ (UI-ի համար)
+          const newNotification = {
+            id: data.id || Date.now(), // Բեքենդից եկող ID-ն կամ ժամանակավոր
+            message: data.message,
+            trip_id: data.trip_id,
+            is_read: false,
+            created_at: new Date().toISOString()
+          };
+
+          setNotifications(prev => [newNotification, ...prev]);
+          setUnreadCount(prev => prev + 1);
+        }
+      } catch (err) {
+        console.error("❌ WS Message Error:", err);
+      }
+    };
+
+    socket.onerror = (err) => console.error("❌ WS Error:", err);
+    socket.onclose = () => console.log("🔌 WS Disconnected");
+
+    return () => {
+      if (socket.readyState === 1) socket.close();
+    };
+  }, [user, setNotifications, setUnreadCount]);
+
+  return null;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
+      {/* AuthProvider-ը պետք է լինի ամենավերևում */}
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+        {/* NotificationProvider-ը դնում ենք Auth-ի ներսում, որպեսզի այն կարողանա օգտվել useAuth-ից */}
+        <NotificationProvider>
+          <Toaster />
+          <WebSocketListener />
 
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/trips" element={<MyTrips />} />
-            <Route path="/trips/create" element={<CreateTrip />} />
-            <Route path="/trips/:id/itinerary" element={<Itinerary />} />
-            <Route path="/countries" element={<Countries />} />
-            <Route path="/cities" element={<Cities />} />
-            <Route path="/attractions" element={<Attractions />} />
-            <Route path="/hotels" element={<Hotels />} />
-            <Route path="/restaurants" element={<Restaurants />} />
-            <Route path="/flights" element={<Flights />} />
-            <Route path="/preferences" element={<Preferences />} />
-            <Route path="/reviews" element={<Reviews />} />
-          </Route>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/trips" element={<MyTrips />} />
+              <Route path="/trips/create" element={<CreateTrip />} />
+              <Route path="/trips/:id/itinerary" element={<Itinerary />} />
+              <Route path="/countries" element={<Countries />} />
+              <Route path="/cities" element={<Cities />} />
+              <Route path="/attractions" element={<Attractions />} />
+              <Route path="/hotels" element={<Hotels />} />
+              <Route path="/restaurants" element={<Restaurants />} />
+              <Route path="/flights" element={<Flights />} />
+              <Route path="/preferences" element={<Preferences />} />
+              <Route path="/reviews" element={<Reviews />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
-  )
+  );
 }

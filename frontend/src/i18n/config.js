@@ -9,10 +9,14 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      hy: hy,
-      en: en
+      hy: { translation: hy },
+      en: { translation: en }
     },
     fallbackLng: 'hy',
+    detection: {
+      order: ['localStorage', 'cookie', 'navigator'],
+      caches: ['localStorage']
+    },
     interpolation: {
       escapeValue: false
     }

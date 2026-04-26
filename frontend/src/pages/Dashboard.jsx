@@ -1,69 +1,103 @@
 import { Link } from 'react-router-dom'
-
-const cards = [
-  { icon: '🌍', title: 'Countries',      desc: 'Browse available countries',     to: '/countries',   color: 'bg-emerald-50/80 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50' },
-  { icon: '🏙️', title: 'Cities',         desc: 'Explore destination cities',     to: '/cities',      color: 'bg-sky-50/80 border-sky-200 hover:border-sky-300 hover:bg-sky-50' },
-  { icon: '🏨', title: 'Hotels',         desc: 'Browse accommodations',          to: '/hotels',      color: 'bg-amber-50/80 border-amber-200 hover:border-amber-300 hover:bg-amber-50' },
-  { icon: '🎡', title: 'Attractions',    desc: 'Discover local attractions',     to: '/attractions', color: 'bg-purple-50/80 border-purple-200 hover:border-purple-300 hover:bg-purple-50' },
-  { icon: '🍽️', title: 'Restaurants',   desc: 'Find dining options',            to: '/restaurants', color: 'bg-orange-50/80 border-orange-200 hover:border-orange-300 hover:bg-orange-50' },
-  { icon: '🛫', title: 'Flights',        desc: 'Browse available flights',       to: '/flights',     color: 'bg-blue-50/80 border-blue-200 hover:border-blue-300 hover:bg-blue-50' },
-]
+import { useTranslation } from 'react-i18next';
+import heroBg from '../assets/background.jpg';
+import filghtsBg from '../assets/flight.jpg';
+import countriesBg from '../assets/countries.jpg';
+import citiesBg from '../assets/city.jpg';
+import hotelsBg from '../assets/hotel.jpg';
+import attractionsBg from '../assets/attraction.jpg';
+import restaurantsBg from '../assets/restaurant.jpg';
 
 export default function Dashboard() {
+  const { t, i18n } = useTranslation();
+
+  const cards = [
+    { id: 1, icon: '🌍', title: t('nav.countries'),   to: '/countries',   img: countriesBg, rotate: '-rotate-2' },
+    { id: 2, icon: '🏙️', title: t('nav.cities'),      to: '/cities',      img: citiesBg, rotate: 'rotate-3' },
+    { id: 3, icon: '🏨', title: t('nav.hotels'),      to: '/hotels',      img: hotelsBg, rotate: 'rotate-1' },
+    { id: 4, icon: '🎡', title: t('nav.attractions'), to: '/attractions', img: attractionsBg, rotate: '-rotate-3' },
+    { id: 5, icon: '🍽️', title: t('nav.restaurants'), to: '/restaurants', img: restaurantsBg, rotate: 'rotate-2' },
+    { id: 6, icon: '🛫', title: t('nav.flights'),      to: '/flights',     img: filghtsBg, rotate: '-rotate-1' },
+  ];
+
   return (
-    <div>
-      {/* ── Hero ── */}
-      <div className="relative rounded-2xl overflow-hidden mb-8 shadow-lg">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-700 to-teal-500" />
-
-        {/* Decorative blobs */}
-        <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-white/5" />
-        <div className="absolute top-8 right-32 w-40 h-40 rounded-full bg-teal-400/10" />
-        <div className="absolute -bottom-12 -left-12 w-56 h-56 rounded-full bg-blue-400/10" />
-        <div className="absolute bottom-0 left-1/2 w-96 h-96 rounded-full bg-white/5 -translate-x-1/2 translate-y-1/2" />
-
-        {/* Content */}
-        <div className="relative px-10 py-14 text-white">
-          <div className="flex items-start gap-4 mb-6">
-            <div>
-              <p className="text-blue-200 text-sm font-medium tracking-widest uppercase mb-1">
-              </p>
-              <h1 className="text-4xl font-bold leading-tight">
-                Travel Planning
-              </h1>
-              <p className="text-blue-100 text-lg mt-2 max-w-md">
-                Plan your perfect trip — discover flights, hotels, and attractions all in one place.
-              </p>
-            </div>
-
-            {/* Decorative globe */}
-            <div className="ml-auto text-7xl opacity-20 select-none hidden sm:block">
-            </div>
+    <div className="pb-24 text-left font-sans bg-[#ececii]">
+      
+      <div className="relative flex flex-col md:flex-row items-stretch min-h-[500px] mb-24 lg:mb-32 overflow-hidden md:overflow-visible">
+        
+        <div className="relative z-10 bg-slate-950 text-white p-10 md:p-16 md:w-[55%] flex flex-col justify-center" 
+             style={{ clipPath: window.innerWidth > 768 ? 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' : 'none' }}>
+          <div className="max-w-md">
+            <h1 className="text-4xl md:text-6xl font-black text-white leading-[1.1] mb-6 uppercase italic tracking-tighter">
+              {t('dashboard.hero.title')}
+            </h1>
+            
+            <p className="text-base md:text-lg text-gray-300 font-medium leading-relaxed mb-10 opacity-90">
+              {t('dashboard.hero.description')}
+            </p>
+            
+            <Link 
+              to="/trips/create" 
+              className="inline-flex items-center gap-4 bg-white text-slate-950 px-8 py-4 rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-2xl active:scale-95 group/btn"
+            >
+              {t('nav.plan_trip')} 
+              <span className="text-xl transition-transform group-hover/btn:translate-x-2">→</span>
+            </Link>
           </div>
+        </div>
 
-          <div className="flex flex-wrap gap-3">
-          </div>
+        <div className="relative h-[300px] md:h-auto md:absolute md:inset-y-0 md:right-0 md:w-[60%] z-0 shadow-2xl">
+          <div 
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-1000" 
+            style={{ backgroundImage: `url(${heroBg})` }}
+          />
+          <div className="absolute inset-0 bg-black/20" />
         </div>
       </div>
 
-      {/* ── Resource grid ── */}
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-        Explore
-      </p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {cards.map((c) => (
-          <Link
-            key={c.to}
-            to={c.to}
-            className={`block rounded-xl border-2 p-5 transition-all hover:shadow-md ${c.color}`}
-          >
-            <div className="text-3xl mb-3">{c.icon}</div>
-            <h3 className="font-semibold text-gray-900 text-sm">{c.title}</h3>
-            <p className="text-xs text-gray-500 mt-1">{c.desc}</p>
-          </Link>
-        ))}
-      </div>
+      <section className="px-4 md:px-8">
+        <div className="flex items-center gap-6 mb-20">
+          <div className="h-[2px] w-12 bg-slate-950" />
+          <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter text-slate-900 whitespace-nowrap">
+            {t('dashboard.resources.title')}
+          </h2>
+          <div className="h-[1px] flex-1 bg-slate-200" />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-16 gap-x-10 items-stretch">
+          {cards.map((c) => (
+            <Link
+              key={c.to}
+              to={c.to}
+              className={`group relative block transition-all duration-300 hover:-translate-y-4 h-full ${c.rotate}`}
+            >
+              <div className="absolute inset-0 bg-slate-950 translate-x-2 translate-y-2 rounded-[2.5rem] z-0 transition-transform group-hover:translate-x-1 group-hover:translate-y-1" />
+              
+              <div className="relative z-10 bg-white p-6 rounded-[2.5rem] border-4 border-slate-950 shadow-sm overflow-hidden h-full flex flex-col transition-all">
+                
+                <div className="relative h-44 rounded-3xl overflow-hidden mb-6 border-2 border-slate-950 flex-shrink-0">
+                  <img src={c.img} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  {/* Icon Badge */}
+                  <div className="absolute top-4 left-4 w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-lg border-2 border-slate-950">
+                    {c.icon}
+                  </div>
+                </div>
+
+                <div className="flex-grow flex flex-col justify-between">
+                  <h3 className="font-black text-slate-950 text-2xl xl:text-3xl uppercase italic tracking-tighter mb-6 leading-tight">
+                    {c.title}
+                  </h3>
+                  
+                  <div className="inline-flex items-center gap-2 self-start text-slate-950 bg-white px-5 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-md border-2 border-slate-950 transition-all group-hover:bg-slate-950 group-hover:text-white">
+                    {t('common.explore') || 'Explore'} <span>→</span>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

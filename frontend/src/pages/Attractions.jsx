@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getAttractions, getCities } from '../api/resources'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
@@ -13,6 +14,7 @@ const CATEGORY_COLORS = {
 }
 
 export default function Attractions() {
+  const { t } = useTranslation();
   const [attractions, setAttractions] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,11 +31,9 @@ export default function Attractions() {
         const sortedAttractions = (attractionsData || []).sort((a, b) => 
           a.name.localeCompare(b.name)
         );
-
         const sortedCities = (citiesData || []).sort((a, b) => 
           a.name.localeCompare(b.name)
         );
-
         setAttractions(sortedAttractions);
         setCities(sortedCities);
       })
@@ -52,27 +52,32 @@ export default function Attractions() {
   })
 
   const columns = [
-    { key: 'name', label: 'Attraction Name' },
+    { 
+      key: 'name', 
+      label: t('attractions.table.name') },
     { 
       key: 'city_id', 
-      label: 'City',
+      label: t('attractions.table.cities'),
       render: (id) => cities.find(c => c.city_id === id)?.name || `ID: ${id}`
     },
     { 
       key: 'category', 
-      label: 'Category',
+      label: t('attractions.table.category'),
       render: (cat) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${CATEGORY_COLORS[cat] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
-          {cat}
-        </span>
-      )
+      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${CATEGORY_COLORS[cat] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
+        {t(`attractions.categories.${cat}`)} 
+      </span>
+    )
     },
-    { key: 'rating', label: 'Rating', render: (val) => `⭐ ${val.toFixed(1)}` },
+    { 
+      key: 'rating', 
+      label: t('attractions.table.rating'), 
+      render: (val) => `⭐ ${val.toFixed(1)}` },
     { 
       key: 'website', 
-      label: 'Information', 
+      label: t('attractions.table.info'), 
       render: (url) => {
-        if (!url) return <span className="text-gray-400 italic text-xs">No link</span>;
+        if (!url) return <span className="text-gray-400 italic text-xs">{t('attractions.no_link')}</span>;
         const href = url.startsWith('http') ? url : `https://${url}`;
         return (
           <a 
@@ -81,7 +86,7 @@ export default function Attractions() {
             rel="noopener noreferrer" 
             className="inline-flex items-center px-3 py-1 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors border border-purple-200 font-medium text-xs"
           >
-            View Website ↗
+            {t('attractions.view_website')} ↗
           </a>
         );
       }
@@ -90,38 +95,46 @@ export default function Attractions() {
 
   return (
     <div>
-      <PageHeader icon="🏛️" title="Attractions" subtitle={loading ? 'Loading points of interest...' : `${filteredData.length} spots to explore`} />
+      <PageHeader 
+        icon="🏛️" 
+        title={t('nav.attractions')} 
+        subtitle={t('attractions.subtitle')}
+      />
 
       <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>
-          <label className="label">Search Name</label>
+          <label className="label">{t('attractions.filter.name')}</label>
           <input 
-            type="text" className="input" placeholder="Attraction name..."
+            type="text" className="input" placeholder={t('attractions.filter.placeholder')}
             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         <div>
-          <label className="label">City</label>
+          <label className="label">{t('attractions.filter.cities')}</label>
           <select className="input" value={selectedCityId} onChange={(e) => setSelectedCityId(e.target.value)}>
-            <option value="">All Cities</option>
+            <option value="">{t('attractions.filter.all_cities')}</option>
             {cities.map(c => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label">Category</label>
+          <label className="label">{t('attractions.filter.category')}</label>
           <select className="input" value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-            <option value="">All Categories</option>
-            {sortedCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            <option value="">{t('attractions.filter.all_categories')}</option>
+            {sortedCategories.map(cat => (
+              <option key={cat} value={cat}>{t(`attractions.categories.${cat}`)}</option>
+            ))}
           </select>
         </div>
 
         <div>
-          <label className="label">Min Rating</label>
+          <label className="label">{t('attractions.filter.rating')}</label>
           <select className="input" value={minRating} onChange={(e) => setMinRating(e.target.value)}>
-            <option value="">Rating</option>
-            {[4.5, 4.0, 3.5, 3.0].map(r => <option key={r} value={r}>{r}+ Stars</option>)}
+            <option value="">{t('attractions.filter.all_ratings')}</option>
+            {[4.5, 4.0, 3.5, 3.0].map(r => (
+              <option key={r} value={r}>{r}+ {t('attractions.filter.stars')}</option>
+            ))}
           </select>
         </div>
       </div>

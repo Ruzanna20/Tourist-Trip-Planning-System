@@ -10,6 +10,7 @@ import (
 	"travel-planning/handlers"
 	"travel-planning/internal/cache"
 	"travel-planning/internal/kafka"
+	"travel-planning/internal/notifications"
 	jobservice "travel-planning/jobService"
 	"travel-planning/server"
 
@@ -72,6 +73,7 @@ func main() {
 	itineraryRepo := repository.NewTripItineraryRepository(sqlConn)
 	itineraryActivitiesRepo := repository.NewItineraryActivitiesRepository(sqlConn)
 	reviewRepo := repository.NewReviewRepository(sqlConn)
+	notificationRepo := repository.NewNotificationRepository(sqlConn)
 
 	amadeusService := services.NewAmadeusService()
 	countryAPIService := services.NewCountryAPIService(cacheService)
@@ -104,9 +106,15 @@ func main() {
 		hotelRepo,
 		attractionRepo,
 		restaurantRepo,
-		userPreferencesRepo, kafkaProducer)
+		userPreferencesRepo,
+		notificationRepo,
+		kafkaProducer,
+		cacheService,
+	)
 
-	kafkaConsumer := kafka.NewConsumer([]string{"kafka:9092"}, "trip-requests", "trip-service-group", tripPlanningService)
+	hub := notifications.NewHub()
+
+	kafkaConsumer := kafka.NewConsumer([]string{"kafka:9092"}, "trip-requests", "trip-service-group", tripPlanningService, hub)
 	defer kafkaConsumer.Close()
 
 	go kafkaConsumer.Start(context.Background())
@@ -211,6 +219,8 @@ func main() {
 	resourceHandlers := handlers.NewResourceHandlers(resourceService)
 	reviewHandlers := handlers.NewReviewHandlers(reviewService)
 
+	notificationHandlers := handlers.NewNotificationHandlers(notificationRepo)
+
 	tripHandlers := handlers.NewTripHandlers(tripPlanningService)
 
 	appServer := server.NewAppServer(
@@ -220,6 +230,8 @@ func main() {
 		userHandlers,
 		tripHandlers,
 		jwtService,
+		hub,
+		notificationHandlers,
 	)
 	appServer.Start(":8080")
 

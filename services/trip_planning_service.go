@@ -9,6 +9,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	"travel-planning/internal/cache"
 	"travel-planning/internal/kafka"
 	"travel-planning/models"
 	"travel-planning/repository"
@@ -26,7 +27,11 @@ type TripPlanningService struct {
 
 	UserPreferencesRepo *repository.UserPreferencesRepository
 
+	NotificationRepo *repository.NotificationRepository
+
 	KafkaProducer *kafka.Producer
+
+	Cache *cache.RedisCache
 }
 
 func NewTripPlanningService(
@@ -38,7 +43,9 @@ func NewTripPlanningService(
 	attractionRepo *repository.AttractionRepository,
 	restaurantRepo *repository.RestaurantRepository,
 	userPreferencesRepo *repository.UserPreferencesRepository,
-	KafkaProducer *kafka.Producer) *TripPlanningService {
+	notificationRepo *repository.NotificationRepository,
+	KafkaProducer *kafka.Producer,
+	cache *cache.RedisCache) *TripPlanningService {
 	return &TripPlanningService{
 		TripRepo:                tripRepo,
 		ItineraryRepo:           itineraryRepo,
@@ -48,11 +55,31 @@ func NewTripPlanningService(
 		AttractionRepo:          attractionRepo,
 		RestaurantRepo:          restaurantRepo,
 		UserPreferencesRepo:     userPreferencesRepo,
+		NotificationRepo:        notificationRepo,
 		KafkaProducer:           KafkaProducer,
+		Cache:                   cache,
 	}
 }
 
+func (s *TripPlanningService) SaveNotification(userID int, tripID int, message string, msgType string) error {
+	if s.NotificationRepo == nil {
+		return fmt.Errorf("notification repository not initialized")
+	}
+	return s.NotificationRepo.SaveNotification(userID, tripID, message, msgType)
+}
+
 func (s *TripPlanningService) GenerateOptions(tripID int) ([]models.TripOption, error) {
+	var options []models.TripOption
+	cacheKey := fmt.Sprintf("trip_options:%d", tripID)
+
+	err := s.Cache.Get(context.Background(), cacheKey, &options)
+	if err == nil && len(options) > 0 {
+		slog.Info("Serving trip options from cache", "trip_id", tripID)
+		return options, nil
+	}
+
+	slog.Info("Generating new trip options (not in cache)", "trip_id", tripID)
+
 	trip, err := s.TripRepo.GetTripByID(tripID)
 	if err != nil {
 		return nil, fmt.Errorf("trip not found: %w", err)
@@ -75,7 +102,6 @@ func (s *TripPlanningService) GenerateOptions(tripID int) ([]models.TripOption, 
 	activities_budget := totalBudget * 0.30
 	more_money := totalBudget * 0.20
 
-	var options []models.TripOption
 	tiers := []string{"Economy", "Balanced", "Luxury"}
 
 	for _, tier := range tiers {
@@ -124,6 +150,11 @@ func (s *TripPlanningService) GenerateOptions(tripID int) ([]models.TripOption, 
 	if len(options) == 0 {
 		return nil, fmt.Errorf("could not generate any trip options within your budget")
 	}
+
+	if len(options) > 0 {
+		s.Cache.Set(context.Background(), cacheKey, options, 24*time.Hour)
+	}
+
 	return options, nil
 }
 
@@ -501,5 +532,24 @@ func (s *TripPlanningService) UpdateTripStatus(tripID, userID int, newStatus str
 	}
 
 	l.Info("Trip status updated successfully")
+	return nil
+}
+
+func (s *TripPlanningService) SwapAttraction(activityID int64, newAttractionName string) error {
+	slog.Info("Swapping attraction", "activity_id", activityID, "new_name", newAttractionName)
+
+	newID, err := s.AttractionRepo.GetIDByName(newAttractionName)
+	if err != nil {
+		slog.Error("Could not find attraction by name", "name", newAttractionName, "error", err)
+		return fmt.Errorf("attraction not found: %w", err)
+	}
+
+	err = s.ItineraryRepo.UpdateAttraction(activityID, newID)
+	if err != nil {
+		slog.Error("Failed to update activity with new attraction", "activity_id", activityID, "error", err)
+		return fmt.Errorf("failed to swap attraction: %w", err)
+	}
+
+	slog.Info("Attraction swapped successfully", "activity_id", activityID, "new_id", newID)
 	return nil
 }

@@ -1,16 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { createTrip, generateTripOptions, selectTripOption } from '../../api/trips'
 import { getCities, getCountries } from '../../api/resources'
 import PageHeader from '../../components/PageHeader'
 
-const TIER_STYLE = {
-  budget:   { border: 'border-green-300',  bg: 'bg-green-50',    badge: 'bg-green-100 text-green-800', icon: '🍃' },
-  standard: { border: 'border-blue-300',   bg: 'bg-blue-50',     badge: 'bg-blue-100 text-blue-800',  icon: '🌟' },
-  premium:  { border: 'border-purple-300', bg: 'bg-purple-50',   badge: 'bg-purple-100 text-purple-800', icon: '💎' },
-}
-
 export default function CreateTrip() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [tripId, setTripId] = useState(null)
@@ -23,6 +19,12 @@ export default function CreateTrip() {
   const [error, setError] = useState('')
   const [timeMode, setTimeMode] = useState('duration')
 
+  const TIER_STYLE = {
+    budget:   { border: 'border-green-300',  bg: 'bg-green-50',     badge: 'bg-green-100 text-green-800', icon: '🍃', label: t('trips.tiers.budget') },
+    standard: { border: 'border-blue-300',   bg: 'bg-blue-50',      badge: 'bg-blue-100 text-blue-800',  icon: '🌟', label: t('trips.tiers.standard') },
+    premium:  { border: 'border-purple-300', bg: 'bg-purple-50',     badge: 'bg-purple-100 text-purple-800', icon: '💎', label: t('trips.tiers.premium') },
+  }
+
   const [form, setForm] = useState({
     name: '',
     destination_city_id: '',
@@ -33,13 +35,21 @@ export default function CreateTrip() {
   })
 
   useEffect(() => {
-    Promise.all([getCountries(), getCities()])
-      .then(([countriesData, citiesData]) => {
-        setCountries(countriesData || [])
-        setCities(citiesData || [])
-      })
-      .catch(() => setError('Failed to load locations.'))
-  }, [])
+  Promise.all([getCountries(), getCities()])
+    .then(([countriesData, citiesData]) => {
+      const sortedCountries = (countriesData || []).sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+      
+      const sortedCities = (citiesData || []).sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+
+      setCountries(sortedCountries);
+      setCities(sortedCities);
+    })
+    .catch(() => setError(t('countries.error_load')));
+}, [t]);
 
   const handleChange = (field) => (e) => setForm({ ...form, [field]: e.target.value })
 
@@ -63,7 +73,6 @@ export default function CreateTrip() {
       const start = new Date() 
       const end = new Date()
       end.setDate(start.getDate() + duration)
-      
       startDate = start.toISOString().split('T')[0]
       endDate = end.toISOString().split('T')[0]
     } else {
@@ -88,7 +97,7 @@ export default function CreateTrip() {
       setOptions(Array.isArray(opts) ? opts : [])
       setStep(2)
     } catch (err) {
-      setError(err.response?.data || 'Failed to start planning. Check dates.')
+      setError(t('trips.error_create'))
     } finally {
       setLoading(false)
     }
@@ -105,7 +114,7 @@ export default function CreateTrip() {
       })
       navigate(`/trips/${tripId}/itinerary`)
     } catch (err) {
-      setError('Selection failed.')
+      setError(t('trips.error_select'))
     } finally {
       setLoading(false)
     }
@@ -115,19 +124,19 @@ export default function CreateTrip() {
     <div className="max-w-4xl mx-auto px-4 py-6">
       <PageHeader
         icon="✈️"
-        title="Plan a Trip"
-        subtitle={step === 1 ? 'Fill in your trip details' : 'Choose your travel package'}
+        title={t('nav.plan_trip')}
+        subtitle={step === 1 ? t('trips.create_subtitle_1') : t('trips.create_subtitle_2')}
       />
 
       <div className="flex items-center justify-center gap-6 mb-10 mt-4">
         {[
-          { n: 1, label: 'Trip Details' },
-          { n: 2, label: 'Choose Package' },
-          { n: 3, label: 'Itinerary' }
+          { n: 1, label: t('trips.steps.details') },
+          { n: 2, label: t('trips.steps.package') },
+          { n: 3, label: t('trips.steps.itinerary') }
         ].map((s, i) => (
           <div key={s.n} className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-sm ${
-              step === s.n ? 'bg-brand-600 text-white ring-4 ring-brand-100' : 
+              step === s.n ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 
               step > s.n ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
             }`}>
               {step > s.n ? '✓' : s.n}
@@ -143,25 +152,25 @@ export default function CreateTrip() {
       {error && <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm shadow-sm">{error}</div>}
 
       {step === 1 ? (
-        <div className="card shadow-xl p-8 border-t-4 border-brand-600">
+        <div className="card shadow-xl p-8 border-t-4 border-blue-600">
           <form onSubmit={handleCreate} className="space-y-6">
             <div>
-              <label className="label">Trip Name</label>
-              <input type="text" className="input" value={form.name} onChange={handleChange('name')} placeholder="My Adventure" required />
+              <label className="label">{t('trips.form.name_label')}</label>
+              <input type="text" className="input" value={form.name} onChange={handleChange('name')} placeholder={t('trips.form.name_placeholder')} required />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="label">Country</label>
+                <label className="label">{t('cities.table.country')}</label>
                 <select className="input" value={selectedCountry} onChange={handleCountryChange} required>
-                  <option value="">Select country...</option>
+                  <option value="">{t('trips.form.select_country')}</option>
                   {countries.map(c => <option key={c.country_id} value={c.country_id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="label">City</label>
+                <label className="label">{t('trips.form.cities')}</label>
                 <select className="input" value={form.destination_city_id} onChange={handleChange('destination_city_id')} disabled={!selectedCountry} required>
-                  <option value="">Select city...</option>
+                  <option value="">{t('trips.form.select_city')}</option>
                   {filteredCities.map(c => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
                 </select>
               </div>
@@ -169,41 +178,52 @@ export default function CreateTrip() {
 
             <div className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div className="flex gap-2 p-1 bg-gray-200/50 rounded-lg w-fit">
-                <button type="button" onClick={() => setTimeMode('duration')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${timeMode === 'duration' ? 'bg-white shadow text-brand-600' : 'text-gray-500'}`}>DURATION</button>
-                <button type="button" onClick={() => setTimeMode('dates')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${timeMode === 'dates' ? 'bg-white shadow text-brand-600' : 'text-gray-500'}`}>SPECIFIC DATES</button>
+                <button type="button" onClick={() => setTimeMode('duration')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${timeMode === 'duration' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>{t('trips.form.duration_mode')}</button>
+                <button type="button" onClick={() => setTimeMode('dates')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${timeMode === 'dates' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>{t('trips.form.dates_mode')}</button>
               </div>
 
               {timeMode === 'duration' ? (
                 <div className="flex items-center gap-3">
-                  <input type="number" className="input w-32" value={form.duration} onChange={handleChange('duration')} min="1" placeholder="Days" required />
-                  <span className="text-gray-500 font-medium">days in the city</span>
+                  <input type="number" className="input w-32" value={form.duration} onChange={handleChange('duration')} min="1" placeholder={t('flights.units.day')} required />
+                  <span className="text-gray-500 font-medium">{t('trips.form.days_in_city')}</span>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">From</label>
-                    <input type="date" className="input" value={form.start_date} onChange={handleChange('start_date')} required />
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">{t('flights.filter.from_date')}</label>
+                    <input type="date" 
+                      placeholder="օր / ամիս / տարի" 
+                      className="input" value={form.start_date} onChange={handleChange('start_date')} required />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase">To</label>
-                    <input type="date" className="input" value={form.end_date} onChange={handleChange('end_date')} required />
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">{t('flights.filter.to_date')}</label>
+                    <input type="date" 
+                      placeholder="օր / ամիս / տարի" 
+                      className="input" value={form.end_date} onChange={handleChange('end_date')} required />
                   </div>
                 </div>
               )}
             </div>
 
             <div>
-              <label className="label">Budget (USD)</label>
-              <input type="number" className="input" value={form.total_price} onChange={handleChange('total_price')} placeholder="e.g. 2000" required />
+              <label className="label">{t('trips.form.budget_label')}</label>
+              <input 
+                type="number" 
+                className="input" 
+                value={form.total_price} 
+                onChange={handleChange('total_price')} 
+                placeholder={t('trips.form.budget_placeholder')} // "Ընդհանուր բյուջե"
+                required 
+              />
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full py-4 text-lg justify-center shadow-lg shadow-brand-200">
-              {loading ? 'AI is generating options...' : 'Generate Plan →'}
+            <button type="submit" disabled={loading} className="btn-primary w-full py-4 text-lg justify-center shadow-lg">
+              {loading ? t('trips.form.generating') : t('trips.form.generate_btn')}
             </button>
           </form>
         </div>
       ) : (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6">
           {options.map((opt) => {
             const style = TIER_STYLE[opt.tier] || {}
             return (
@@ -212,40 +232,40 @@ export default function CreateTrip() {
                   <div className="flex-1 space-y-4">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{style.icon}</span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${style.badge}`}>{opt.tier}</span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${style.badge}`}>{style.label}</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Accommodation</p>
-                        <p className="font-bold text-gray-900 leading-tight">{opt.hotel?.name || 'Local Guesthouse'}</p>
-                        <p className="text-xs text-gray-600">{opt.hotel?.stars} ⭐ · ${opt.hotel?.price_per_night}/night</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{t('trips.package.accommodation')}</p>
+                        <p className="font-bold text-gray-900 leading-tight">{opt.hotel?.name || t('trips.package.local_stay')}</p>
+                        <p className="text-xs text-gray-600">{opt.hotel?.stars} ⭐ · ${opt.hotel?.price_per_night}/{t('flights.units.night')}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Transport</p>
-                        <p className="font-bold text-gray-900 leading-tight">{opt.outbound_flight?.airline || 'Standard Travel'}</p>
-                        <p className="text-xs text-gray-600">Round trip total: ${((opt.outbound_flight?.price || 0) + (opt.inbound_flight?.price || 0)).toLocaleString()}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{t('trips.package.transport')}</p>
+                        <p className="font-bold text-gray-900 leading-tight">{opt.outbound_flight?.airline || t('trips.package.standard_travel')}</p>
+                        <p className="text-xs text-gray-600">{t('trips.package.round_trip')}: ${((opt.outbound_flight?.price || 0) + (opt.inbound_flight?.price || 0)).toLocaleString()}</p>
                       </div>
                     </div>
                     
                     <div className="pt-4 border-t border-gray-200/50 flex flex-wrap gap-x-6 gap-y-2 text-xs text-gray-500">
-                      <span>🎭 Activities Budget: <b className="text-gray-900">${opt.activites_budget}</b></span>
-                      <span>🚗 Logistics: <b className="text-gray-900">${opt.logistics_budget}</b></span>
-                      {opt.more_money > 0 && <span className="text-green-600 font-bold">💰 Saved: ${opt.more_money}</span>}
+                      <span>🎭 {t('trips.package.activities')}: <b className="text-gray-900">${opt.activites_budget}</b></span>
+                      <span>🚗 {t('trips.package.logistics')}: <b className="text-gray-900">${opt.logistics_budget}</b></span>
+                      {opt.more_money > 0 && <span className="text-green-600 font-bold">💰 {t('trips.package.saved')}: ${opt.more_money}</span>}
                     </div>
                   </div>
 
                   <div className="md:w-52 flex flex-col items-center justify-center bg-white rounded-xl p-5 border border-gray-100 shadow-inner">
-                    <p className="text-xs text-gray-400 uppercase font-bold mb-1">Est. Total</p>
+                    <p className="text-xs text-gray-400 uppercase font-bold mb-1">{t('trips.package.est_total')}</p>
                     <p className="text-3xl font-black text-gray-900">${opt.total_price_of_money?.toLocaleString()}</p>
-                    <button onClick={() => handleSelect(opt)} disabled={loading} className="btn-primary w-full mt-4 justify-center py-3">Select Plan</button>
+                    <button onClick={() => handleSelect(opt)} disabled={loading} className="btn-primary w-full mt-4 justify-center py-3">{t('trips.package.select_btn')}</button>
                   </div>
                 </div>
               </div>
             )
           })}
-          <button onClick={() => setStep(1)} className="flex items-center gap-2 text-gray-500 font-bold hover:text-brand-600 transition-colors">
-            ← Change Details
+          <button onClick={() => setStep(1)} className="flex items-center gap-2 text-gray-500 font-bold hover:text-blue-600 transition-colors">
+            ← {t('trips.package.back_btn')}
           </button>
         </div>
       )}

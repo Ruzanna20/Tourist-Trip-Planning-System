@@ -26,3 +26,6 @@ export const completeTrip = (tripId) =>
 
 export const getVisitedEntities = (type) => 
   client.get(`/api/users/me/visited?type=${type}`).then((r) => r.data);
+
+export const swapActivity = (activityId, newName) =>
+  client.post(`/api/itinerary/activities/${activityId}/swap`, { new_name: newName }).then((r) => r.data)

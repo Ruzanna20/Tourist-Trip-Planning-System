@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getHotels, getCities } from '../api/resources'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 
 export default function Hotels() {
+  const { t } = useTranslation();
   const [hotels, setHotels] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,23 +21,17 @@ export default function Hotels() {
     setLoading(true)
     Promise.all([getHotels(), getCities()])
       .then(([hotelsData, citiesData]) => {
-        const sortedHotels = (hotelsData || []).sort((a, b) => 
-          a.name.localeCompare(b.name)
-        );
-        
-        const sortedCities = (citiesData || []).sort((a, b) => 
-          a.name.localeCompare(b.name)
-        );
-
+        const sortedHotels = (hotelsData || []).sort((a, b) => a.name.localeCompare(b.name));
+        const sortedCities = (citiesData || []).sort((a, b) => a.name.localeCompare(b.name));
         setHotels(sortedHotels);
         setCities(sortedCities);
       })
       .catch(err => {
         console.error("Error loading hotels:", err);
-        setError("Failed to load hotel data.");
+        setError(t('hotels.error_load'));
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const filteredHotels = hotels.filter(hotel => {
     const matchesSearch = hotel.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -47,15 +43,29 @@ export default function Hotels() {
   })
 
   const columns = [
-    { key: 'name', label: 'Hotel Name' },
+    { key: 'name', label: t('hotels.table.name') },
     { 
       key: 'city_id', 
-      label: 'City',
+      label: t('hotels.table.cities'),
       render: (id) => cities.find(c => c.city_id === id)?.name || `ID: ${id}`
     },
     { 
+      key: 'address', 
+      label: t('hotels.table.address'), 
+      render: (val) => <span className="text-gray-600 text-sm italic">{val || '—'}</span>
+    },
+    { 
+      key: 'description', 
+      label: t('hotels.table.description'), 
+      render: (val) => (
+        <div className="max-w-xs truncate text-gray-500 text-xs" title={val}>
+          {val || t('hotels.no_description')}
+        </div>
+      )
+    },
+    { 
       key: 'stars', 
-      label: 'Stars', 
+      label: t('hotels.table.stars'), 
       render: (val) => (
         <span className="text-yellow-500 font-bold whitespace-nowrap">
           {'★'.repeat(val)}{'☆'.repeat(5 - val)}
@@ -64,7 +74,7 @@ export default function Hotels() {
     },
     { 
       key: 'rating', 
-      label: 'Rating', 
+      label: t('hotels.table.rating'), 
       render: (val) => (
         <span className={`px-2 py-1 rounded text-xs font-bold ${val >= 8 ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
           {val.toFixed(1)} / 10
@@ -73,14 +83,14 @@ export default function Hotels() {
     },
     { 
       key: 'price_per_night', 
-      label: 'Price', 
+      label: t('hotels.table.price'), 
       render: (val) => <span className="font-semibold text-brand-700">${val.toLocaleString()}</span>
     },
     { 
       key: 'website', 
-      label: 'Information', 
+      label: t('hotels.table.info'), 
       render: (url) => {
-        if (!url) return <span className="text-gray-400 italic text-xs">No info</span>;
+        if (!url) return <span className="text-gray-400 italic text-xs">{t('hotels.no_info')}</span>;
         const href = url.startsWith('http') ? url : `https://${url}`;
         return (
           <a 
@@ -89,7 +99,7 @@ export default function Hotels() {
             rel="noopener noreferrer" 
             className="inline-flex items-center px-3 py-1 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors border border-amber-200 font-medium text-xs"
           >
-            View Website ↗
+            {t('hotels.view_website')} ↗
           </a>
         );
       }
@@ -100,52 +110,50 @@ export default function Hotels() {
 
   return (
     <div>
-      <PageHeader icon="🏨" title="Hotels" subtitle={loading ? 'Searching...' : `${filteredHotels.length} accommodations available`} />
+      <PageHeader 
+        icon="🏨" 
+        title={t('nav.hotels')} 
+        subtitle={t('hotels.subtitle')}
+      />
 
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>
-          <label className="label">Search Hotel</label>
+          <label className="label">{t('hotels.filter.search_label')}</label>
           <input 
-            type="text" 
-            className="input" 
-            placeholder="Name..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)}
+            type="text" className="input" placeholder={t('hotels.filter.placeholder')}
+            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         <div>
-          <label className="label">City</label>
+          <label className="label">{t('hotels.filter.cities')}</label>
           <select className="input" value={selectedCityId} onChange={(e) => setSelectedCityId(e.target.value)}>
-            <option value="">All Cities</option>
+            <option value="">{t('hotels.filter.all_cities')}</option>
             {cities.map(c => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label">Stars</label>
+          <label className="label">{t('hotels.filter.stars')}</label>
           <select className="input" value={selectedStars} onChange={(e) => setSelectedStars(e.target.value)}>
-            <option value="">Stars</option>
-            {[5, 4, 3, 2, 1].map(s => <option key={s} value={s}>{s} Stars</option>)}
+            <option value="">{t('hotels.filter.all_stars')}</option>
+            {[5, 4, 3, 2, 1].map(s => <option key={s} value={s}>{s} {t('hotels.filter.stars_label')}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label">Min Rating</label>
+          <label className="label">{t('hotels.filter.rating')}</label>
           <select className="input" value={minRating} onChange={(e) => setMinRating(e.target.value)}>
-            <option value="">Rating</option>
-            {[9, 8, 7, 6].map(r => <option key={r} value={r}>{r}+ Exceptional</option>)}
+            <option value="">{t('hotels.filter.all_ratings')}</option>
+            {[9, 8, 7, 6].map(r => <option key={r} value={r}>{r}+ {t('hotels.filter.rating_desc')}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label">Max Price ($)</label>
+          <label className="label">{t('hotels.filter.max_price')}</label>
           <input 
-            type="number" 
-            className="input" 
-            placeholder="Max budget..." 
-            value={maxPrice} 
-            onChange={(e) => setMaxPrice(e.target.value)}
+            type="number" className="input" placeholder={t('hotels.filter.price_placeholder')}
+            value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)}
           />
         </div>
       </div>

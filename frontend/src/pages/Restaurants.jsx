@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getRestaurants, getCities } from '../api/resources'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 
 export default function Restaurants() {
+  const { t } = useTranslation();
   const [data, setData] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,9 +28,9 @@ export default function Restaurants() {
         );
         setCities(sortedCities);
       })
-      .catch(() => setError('Failed to load restaurant data.'))
+      .catch(() => setError(t('restaurants.error_load')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   const cuisines = [...new Set(data.map(r => r.cuisine).filter(Boolean))].sort((a, b) => 
     a.localeCompare(b)
@@ -43,20 +45,22 @@ export default function Restaurants() {
   })
 
   const columns = [
-    { key: 'name', label: 'Restaurant' },
+    { 
+      key: 'name', 
+      label: t('restaurants.table.restaurant') },
     { 
       key: 'city_id', 
-      label: 'City',
+      label: t('restaurants.table.cities'),
       render: (id) => cities.find(c => c.city_id === id)?.name || `ID: ${id}`
     },
     { 
       key: 'cuisine', 
-      label: 'Cuisine', 
+      label: t('restaurants.table.cuisine'), 
       render: (v) => v ? <span className="badge bg-orange-100 text-orange-700 capitalize">{v}</span> : '—' 
     },
     { 
       key: 'rating', 
-      label: 'Rating', 
+      label: t('restaurants.table.rating'), 
       render: (val) => (
         <span className={`px-2 py-1 rounded text-xs font-bold ${val >= 4.5 ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
           {val.toFixed(1)} / 5
@@ -65,14 +69,14 @@ export default function Restaurants() {
     },
     { 
       key: 'price_range', 
-      label: 'Price', 
+      label: t('restaurants.table.price'), 
       render: (v) => <span className="text-gray-600 font-medium">{v || '—'}</span>
     },
     { 
       key: 'website', 
-      label: 'Information', 
+      label: t('restaurants.table.info'), 
       render: (url) => {
-        if (!url) return <span className="text-gray-400 italic text-xs">No link</span>;
+        if (!url) return <span className="text-gray-400 italic text-xs">{t('restaurants.no_link')}</span>;
         const href = url.startsWith('http') ? url : `https://${url}`;
         return (
           <a 
@@ -81,7 +85,7 @@ export default function Restaurants() {
             rel="noopener noreferrer" 
             className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 font-medium text-xs"
           >
-            Visit Website ↗
+            {t('restaurants.visit_website')} ↗
           </a>
         );
       }
@@ -92,32 +96,36 @@ export default function Restaurants() {
 
   return (
     <div>
-      <PageHeader icon="🍽️" title="Restaurants" subtitle={loading ? 'Loading…' : `${filteredData.length} restaurants found`} />
+      <PageHeader 
+        icon="🍽️" 
+        title={t('nav.restaurants')} 
+        subtitle={t('restaurants.subtitle')}
+      />
       
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>
-          <label className="label">Search Name</label>
-          <input type="text" className="input" placeholder="Restaurant name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <label className="label">{t('restaurants.filter.search_label')}</label>
+          <input type="text" className="input" placeholder={t('restaurants.filter.placeholder')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         <div>
-          <label className="label">City</label>
+          <label className="label">{t('restaurants.filter.cities')}</label>
           <select className="input" value={selectedCityId} onChange={(e) => setSelectedCityId(e.target.value)}>
-            <option value="">All Cities</option>
+            <option value="">{t('restaurants.filter.all_cities')}</option>
             {cities.map(c => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">Cuisine</label>
+          <label className="label">{t('restaurants.filter.cuisine')}</label>
           <select className="input" value={selectedCuisine} onChange={(e) => setSelectedCuisine(e.target.value)}>
-            <option value="">All Cuisines</option>
+            <option value="">{t('restaurants.filter.all_cuisines')}</option>
             {cuisines.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">Min Rating</label>
+          <label className="label">{t('restaurants.filter.rating')}</label>
           <select className="input" value={minRating} onChange={(e) => setMinRating(e.target.value)}>
-            <option value="">Rating</option>
-            {[4.8, 4.5, 4.0, 3.5].map(r => <option key={r} value={r}>{r}+ Stars</option>)}
+            <option value="">{t('restaurants.filter.all_ratings')}</option>
+            {[4.8, 4.5, 4.0, 3.5].map(r => <option key={r} value={r}>{r}+ {t('restaurants.filter.stars')}</option>)}
           </select>
         </div>
       </div>

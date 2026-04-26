@@ -84,3 +84,9 @@ func (r *TripItineraryRepository) GetItineraryDaysByTripID(tripID int) ([]*model
 	}
 	return days, nil
 }
+
+func (r *TripItineraryRepository) UpdateAttraction(activityID int64, newAttractionID int64) error {
+	query := `UPDATE itinerary_activities SET attraction_id = $1, notes = '' WHERE activity_id = $2`
+	_, err := r.db.Exec(query, newAttractionID, activityID)
+	return err
+}

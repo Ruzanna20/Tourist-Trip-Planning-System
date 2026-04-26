@@ -185,3 +185,10 @@ func (r *AttractionRepository) GetVisitedAttractions(userID int) ([]models.Attra
 	}
 	return attractions, nil
 }
+
+func (r *AttractionRepository) GetIDByName(name string) (int64, error) {
+	var id int64
+	query := `SELECT attraction_id FROM attractions WHERE name = $1 LIMIT 1`
+	err := r.db.QueryRow(query, name).Scan(&id)
+	return id, err
+}

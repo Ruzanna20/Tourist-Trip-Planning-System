@@ -1,12 +1,336 @@
 {
-  "translation": {
-    "welcome": "Welcome",
-    "write_review": "Write a Review",
-    "select_category": "Select Category",
-    "no_visited": "No visited places found",
+  "common": {
+    "search": "Search by name",
+    "loading": "Loading...",
+    "no_records": "No data found",
+    "no_description": "No description available",
+    "of": "of",
+    "records": "records",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "n_a": "N/A",
+    "all_rights_reserved": "All rights reserved.",
+    "explore": "Explore"
+  },
+  "auth": {
+    "login": {
+      "title": "Travel Planning",
+      "subtitle": "Log in to your account",
+      "username_label": "Username / Email",
+      "username_placeholder": "Enter your username",
+      "password_label": "Password",
+      "password_placeholder": "Enter your password",
+      "submit_btn": "Log In",
+      "loading_btn": "Signing in...",
+      "no_account": "Don't have an account?",
+      "register_link": "Register here",
+      "error_invalid": "Invalid username or password."
+    },
+    "register": {
+      "title": "Create Account",
+      "subtitle": "Join the Travel Planning System",
+      "first_name_label": "First Name",
+      "last_name_label": "Last Name",
+      "email_label": "Email",
+      "password_label": "Password",
+      "submit_btn": "Create Account",
+      "loading_btn": "Creating account...",
+      "already_account": "Already have an account?",
+      "login_link": "Log In",
+      "error_failed": "Registration failed. Please try again."
+    },
+    "logout": {
+      "success_msg": "You have successfully logged out.",
+      "error_msg": "Logout failed. Please try again."
+    }
+  },
+  "nav": {
+    "plan_trip": "Plan a Trip",
+    "dashboard": "Home",
+    "my_trips": "My Trips",
+    "resources": "Resources",
+    "countries": "Countries",
+    "cities": "Cities",
+    "attractions": "Attractions",
+    "hotels": "Hotels",
+    "restaurants": "Restaurants",
+    "flights": "Flights",
+    "account": "Account",
+    "preferences": "Preferences",
+    "write_review": "Write Review",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "hero": {
+      "title": "Travel Planning",
+      "description": "Plan your perfect trip: discover flights, hotels, and attractions all in one place."
+    },
+    "resources": {
+      "title": "Resources"
+    },
+    "trending_title": "Trending Destinations",
+    "cards": {
+      "countries": "View Countries",
+      "cities": "Discover Destinations",
+      "hotels": "Search Accommodations",
+      "attractions": "Find Interesting Places",
+      "restaurants": "Dining Options",
+      "flights": "Available Flights"
+    }
+  },
+  "attractions": {
+    "subtitle": "Find interesting places, museums, and historical monuments",
+    "error_load": "Failed to load attractions list.",
+    "view_website": "Visit Website",
+    "no_link": "Website missing",
+    "table": {
+      "name": "Name",
+      "info": "Information",
+      "cities": "City",
+      "category": "Category",
+      "rating": "Rating"
+    },
+    "filter": {
+      "name": "Search by name",
+      "placeholder": "Attraction name...",
+      "cities": "By city",
+      "all_cities": "All Cities",
+      "category": "By category",
+      "all_categories": "All Categories",
+      "rating": "By rating",
+      "all_ratings": "All Ratings",
+      "stars": "stars"
+    },
+    "categories": {
+      "museum": "Museum",
+      "viewpoint": "Viewpoint",
+      "gallery": "Gallery",
+      "attraction": "Attraction",
+      "monument": "Monument",
+      "historic": "Historical Sites"
+    }
+  },
+  "cities": {
+    "subtitle": "Discover new cities and destinations for your next trip",
+    "error_load": "Failed to load city data.",
+    "table": {
+      "city_name": "Name",
+      "country": "Country",
+      "description": "Description"
+    },
+    "filter": {
+      "search_label": "Search by name",
+      "placeholder": "City name...",
+      "country": "By country",
+      "all_countries": "All Countries"
+    }
+  },
+  "countries": {
+    "subtitle": "Explore the list of available countries and their international codes",
+    "filter": {
+      "search_label": "Search by name",
+      "placeholder": "Country name..."
+    },
+    "error_load": "Failed to load countries list.",
+    "table": {
+      "country": "Country",
+      "code": "Code"
+    }
+  },
+  "hotels": {
+    "subtitle": "Search for the best accommodations by rating, stars, and budget",
+    "error_load": "Failed to load hotel data.",
+    "view_website": "Visit Website",
+    "no_info": "Information missing",
+    "table": {
+      "name": "Name",
+      "cities": "City",
+      "address": "Address",
+      "description": "Description",
+      "stars": "Stars",
+      "rating": "Rating",
+      "price": "Price per night",
+      "info": "Information"
+    },
+    "filter": {
+      "search_label": "Search by name",
+      "placeholder": "Hotel name...",
+      "cities": "By cities",
+      "all_cities": "All Cities",
+      "stars": "By stars",
+      "all_stars": "All Stars",
+      "rating": "By rating",
+      "all_ratings": "All Ratings",
+      "rating_desc": "exceptional rating",
+      "stars_label": "star",
+      "max_price": "Max price ($)",
+      "price_placeholder": "Budget..."
+    }
+  },
+  "restaurants": {
+    "subtitle": "Discover the best restaurants from local and international cuisines",
+    "error_load": "Failed to load restaurant data.",
+    "visit_website": "Visit Website",
+    "no_link": "Website missing",
+    "table": {
+      "restaurant": "Name",
+      "cities": "City",
+      "cuisine": "Cuisine",
+      "rating": "Rating",
+      "price": "Price",
+      "info": "Information"
+    },
+    "filter": {
+      "search_label": "Search by name",
+      "placeholder": "Restaurant name...",
+      "cities": "By city",
+      "all_cities": "All Cities",
+      "cuisine": "By cuisine",
+      "all_cuisines": "All Cuisines",
+      "rating": "By rating",
+      "all_ratings": "All Ratings"
+    }
+  },
+  "flights": {
+    "subtitle": "Find comfortable flights and compare airfare prices",
+    "error_load": "Failed to load flight data.",
+    "visit_source": "Visit",
+    "units": {
+      "hour": "h",
+      "minute": "m",
+      "day": "day",
+      "night": "night"
+    },
+    "table": {
+      "airline": "Airline",
+      "origin": "Departure City",
+      "destination": "Arrival City",
+      "duration": "Duration",
+      "price": "Price",
+      "source": "Source"
+    },
+    "filter": {
+      "from_label": "Departure point",
+      "to_label": "Arrival point",
+      "all_origins": "All Origins",
+      "all_destinations": "All Destinations",
+      "price_label": "Max price ($)",
+      "price_placeholder": "Budget...",
+      "from_date": "Start date",
+      "to_date": "End date"
+    }
+  },
+  "preferences": {
+    "subtitle": "Personalize your account to receive relevant recommendations",
+    "last_saved": "Last saved on:",
+    "error_save": "Failed to save preferences.",
+    "home_city_label": "Permanent residence city",
+    "select_city_placeholder": "Select your city...",
+    "categories_label": "Preferred categories",
+    "categories_help": "Select the types of places you enjoy visiting",
+    "save_btn": "Save Preferences"
+  },
+  "reviews": {
+    "subtitle": "Share your experience and help other travelers",
+    "category": "Select type",
+    "select_place": "Select place",
+    "choose_option": "Choose option...",
+    "rating": "Rating",
+    "comment": "Your review",
+    "comment_placeholder": "Write about your impressions...",
     "submit": "Submit Review",
-    "hotel": "Hotel",
-    "restaurant": "Restaurant",
-    "attraction": "Attraction"
+    "my_reviews": "My Reviews",
+    "no_reviews": "You haven't left any reviews yet.",
+    "success_msg": "Review submitted successfully.",
+    "confirm_delete": "Are you sure you want to delete this review?",
+    "error_select_place": "Please select the place you visited.",
+    "error_submit": "Failed to submit review.",
+    "error_delete": "Failed to delete review."
+  },
+  "trips": {
+    "subtitle": "Manage all your trips in one place",
+    "error_load": "Failed to load trips.",
+    "error_delete": "Failed to delete trip.",
+    "delete_confirm_title": "Delete Trip",
+    "delete_confirm_msg": "Are you sure you want to delete?",
+    "no_trips_title": "No trips yet",
+    "no_trips_msg": "Create your first trip.",
+    "start_planning": "Start planning first trip",
+    "budget_label": "budget",
+    "view_itinerary": "View Itinerary",
+    "status": {
+      "planned": "Planned",
+      "processing": "Processing",
+      "completed": "Confirmed"
+    },
+    "form": {
+      "name_label": "Trip Name",
+      "name_placeholder": "My Trip...",
+      "select_country": "Select country...",
+      "cities": "City",
+      "select_city": "Select city...",
+      "duration_mode": "DURATION",
+      "dates_mode": "SPECIFIC DATES",
+      "days_in_city": "days",
+      "budget_label": "Budget (USD)",
+      "budget_placeholder": "Total budget...",
+      "generating": "Generating options...",
+      "generate_btn": "Generate Plan →"
+    },
+    "tiers": {
+      "budget": "Budget",
+      "standard": "Standard",
+      "premium": "Premium"
+    },
+    "package": {
+      "accommodation": "Accommodation",
+      "transport": "Flight",
+      "activities": "Leisure and Activities",
+      "est_total": "Estimated total",
+      "select_btn": "Select Package",
+      "back_btn": "Change Details"
+    },
+    "create_subtitle_1": "Fill in the basic details of your trip",
+      "steps": {
+        "details": "Details",
+        "package": "Package",
+        "itinerary": "Itinerary"
+      },
+    "itinerary": {
+      "title": "Trip Itinerary",
+      "subtitle": "Details of your trip and planned activities",
+      "day": "Day",
+      "details_btn": "Details",
+      "visit_website": "Visit Website",
+      "write_review": "Write Review",
+      "back_btn": "Back to Planning",
+      "complete_btn": "Confirm Trip",
+      "free_day": "Free Day - Organize the day yourself: explore the city or simply relax.",
+      "flexible_time": "Upon arrival",
+      "address_na": "No address",
+      "leisure": "Leisure",
+      "notes": {
+        "flight": "Please arrive at the airport 3 hours before departure.",
+        "hotel_welcome": "Welcome. Check in to the hotel.",
+        "hotel_return": "Return to the hotel and relax.",
+        "restaurant": "Enjoy your meal. If busy, check other places nearby.",
+        "alternative_prefix": "If this place is closed, the best nearby alternative is ",
+        "last_day": "It's the last day. Perfect time for souvenir shopping and a final city walk.",
+        "alternative_generic": "If this place is closed, please visit other nearby attractions.",
+        "welcome_walk": "This time is set for relaxation and a free walk. Explore the city on your own."
+      },
+      "swap_button": "Swap Attraction",
+      "fields": {
+        "address": "Address",
+        "stars": "Stars",
+        "rating": "Rating",
+        "price": "Price",
+        "cuisine": "Cuisine",
+        "category": "Category",
+        "entry_fee": "Entry fee",
+        "description": "Description",
+        "status": "Notes"
+      }
+    }
   }
 }

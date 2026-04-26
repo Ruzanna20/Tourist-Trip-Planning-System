@@ -3,8 +3,10 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"travel-planning/handlers"
+	"travel-planning/internal/notifications"
 	"travel-planning/services"
 
 	_ "travel-planning/docs"
@@ -17,12 +19,14 @@ import (
 )
 
 type AppServer struct {
-	AuthHandlers     *handlers.AuthHandlers
-	ResourceHandlers *handlers.ResourceHandlers
-	ReviewHandlers   *handlers.ReviewHandlers
-	UserHandlers     *handlers.UserHandlers
-	TripHandlers     *handlers.TripHandlers
-	JWTService       *services.JWTService
+	AuthHandlers         *handlers.AuthHandlers
+	ResourceHandlers     *handlers.ResourceHandlers
+	ReviewHandlers       *handlers.ReviewHandlers
+	UserHandlers         *handlers.UserHandlers
+	TripHandlers         *handlers.TripHandlers
+	JWTService           *services.JWTService
+	NotificationsHub     *notifications.Hub
+	NotificationHandlers *handlers.NotificationHandlers
 }
 
 func NewAppServer(
@@ -32,14 +36,18 @@ func NewAppServer(
 	userH *handlers.UserHandlers,
 	tripH *handlers.TripHandlers,
 	jwtS *services.JWTService,
+	notificationsHub *notifications.Hub,
+	notificationH *handlers.NotificationHandlers,
 ) *AppServer {
 	return &AppServer{
-		AuthHandlers:     authH,
-		ResourceHandlers: resourceH,
-		ReviewHandlers:   reviewH,
-		UserHandlers:     userH,
-		TripHandlers:     tripH,
-		JWTService:       jwtS,
+		AuthHandlers:         authH,
+		ResourceHandlers:     resourceH,
+		ReviewHandlers:       reviewH,
+		UserHandlers:         userH,
+		TripHandlers:         tripH,
+		JWTService:           jwtS,
+		NotificationsHub:     notificationsHub,
+		NotificationHandlers: notificationH,
 	}
 }
 
@@ -80,6 +88,8 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/me/visited", authMiddleware(s.ResourceHandlers.GetVisitedEntitiesHandler)).Methods("GET")
 	r.HandleFunc("/api/trips/{id}/complete", authMiddleware(s.TripHandlers.CompleteTripHandler)).Methods("POST", "OPTIONS")
 
+	r.HandleFunc("/api/itinerary/activities/{id}/swap", authMiddleware(s.TripHandlers.SwapActivityHandler)).Methods("POST", "OPTIONS")
+
 	// Itinerary & Activities
 	r.HandleFunc("/api/trips/{id}/itinerary", authMiddleware(s.TripHandlers.GetTripItineraryHandler)).Methods("GET")
 	r.HandleFunc("/api/itineraries/{id}/activities", authMiddleware(s.TripHandlers.GetActivitiesHandler)).Methods("GET")
@@ -88,6 +98,21 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/register", s.UserHandlers.RegisterUserHandler).Methods("POST")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.GetPreferencesHandler)).Methods("GET")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
+
+	// Notifications
+	r.HandleFunc("/api/notifications", authMiddleware(s.NotificationHandlers.GetMyNotifications)).Methods("GET")
+	r.HandleFunc("/api/notifications/{id}/read", authMiddleware(s.NotificationHandlers.MarkAsRead)).Methods("POST")
+	r.HandleFunc("/api/notifications/unread-count", authMiddleware(s.NotificationHandlers.GetUnreadCount)).Methods("GET")
+
+	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		userIDStr := r.URL.Query().Get("userID")
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			slog.Error("Invalid userID in WebSocket connection", "error", err)
+			return
+		}
+		s.NotificationsHub.HandleWS(w, r, userID)
+	}).Methods("GET")
 
 	slog.Info("Routes registered successfully")
 

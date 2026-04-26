@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next' 
 import { getCities, getCountries } from '../api/resources'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 
 export default function Cities() {
+  const { t } = useTranslation(); 
   const [cities, setCities] = useState([])
   const [countries, setCountries] = useState([])
   const [selectedCountryId, setSelectedCountryId] = useState('')
@@ -28,10 +30,10 @@ export default function Cities() {
       })
       .catch(err => {
         console.error("Error loading cities data:", err);
-        setError("Failed to load cities or countries.");
+        setError(t('cities.error_load')); 
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const filteredCities = cities.filter(city => {
     const matchesCountry = selectedCountryId ? city.country_id === parseInt(selectedCountryId) : true
@@ -40,16 +42,16 @@ export default function Cities() {
   })
 
   const columns = [
-    { key: 'name', label: 'City Name' },
+    { key: 'name', label: t('cities.table.city_name') },
     { 
       key: 'country_id', 
-      label: 'Country',
+      label: t('cities.table.country'),
       render: (id) => countries.find(c => c.country_id === id)?.name || `ID: ${id}`
     },
     { 
       key: 'description', 
-      label: 'Description',
-      render: (text) => text || 'No description' 
+      label: t('cities.table.description'),
+      render: (text) => text || t('common.no_description') 
     },
   ]
 
@@ -59,30 +61,30 @@ export default function Cities() {
     <div>
       <PageHeader 
         icon="🏙️" 
-        title="Cities" 
-        subtitle="Manage available destinations and their details" 
+        title={t('nav.cities')} 
+        subtitle={t('cities.subtitle')}
       />
 
-      <div className="mb-6 flex flex-wrap gap-4 items-end">
+      <div className="mb-6 flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div className="w-full max-w-xs">
-          <label className="label">Search City</label>
+          <label className="label">{t('cities.filter.search_label')}</label>
           <input 
             type="text"
             className="input"
-            placeholder="City name..."
+            placeholder={t('cities.filter.placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         <div className="w-full max-w-xs">
-          <label className="label">Country</label>
+          <label className="label">{t('cities.filter.country')}</label>
           <select 
             className="input"
             value={selectedCountryId}
             onChange={(e) => setSelectedCountryId(e.target.value)}
           >
-            <option value="">All Countries</option>
+            <option value="">{t('cities.filter.all_countries')}</option>
             {countries.map(c => (
               <option key={c.country_id} value={c.country_id}>{c.name}</option>
             ))}
@@ -90,7 +92,7 @@ export default function Cities() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card shadow-md">
         <DataTable 
           columns={columns} 
           data={filteredCities} 

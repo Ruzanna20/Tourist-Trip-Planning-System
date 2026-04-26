@@ -1,16 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getFlights, getCities } from '../api/resources'
 import PageHeader from '../components/PageHeader'
 import DataTable from '../components/DataTable'
 
-function formatDuration(minutes) {
-  if (!minutes) return '—'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return `${h}h ${m}m`
-}
-
 export default function Flights() {
+  const { t } = useTranslation();
   const [flights, setFlights] = useState([])
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
@@ -20,6 +15,13 @@ export default function Flights() {
   const [toCityId, setToCityId] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
 
+  const formatDuration = (minutes) => {
+    if (!minutes) return '—'
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return `${h}${t('flights.units.hour')} ${m}${t('flights.units.minute')}`
+  }
+
   useEffect(() => {
     setLoading(true)
     Promise.all([getFlights(), getCities()])
@@ -27,16 +29,15 @@ export default function Flights() {
         const sortedCities = (citiesData || []).sort((a, b) => 
           a.name.localeCompare(b.name)
         );
-        
         setFlights(flightsData || [])
         setCities(sortedCities)
       })
       .catch(err => {
         console.error("Error loading flights:", err)
-        setError("Failed to load flight data.")
+        setError(t('flights.error_load'))
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   const filteredFlights = flights.filter(flight => {
     const matchesFrom = fromCityId ? flight.from_city_id === parseInt(fromCityId) : true
@@ -50,7 +51,7 @@ export default function Flights() {
   const columns = [
     { 
       key: 'airline', 
-      label: 'Airline & Info',
+      label: t('flights.table.airline'),
       render: (val) => (
         <div className="flex flex-col">
           <span className="font-bold text-gray-800">{val}</span>
@@ -59,27 +60,27 @@ export default function Flights() {
     },
     { 
       key: 'from_city_id', 
-      label: 'Origin city',
+      label: t('flights.table.origin'),
       render: (id) => <span className="font-medium text-blue-600">{getCityName(id)}</span>
     },
     { 
       key: 'to_city_id', 
-      label: 'Destination city',
+      label: t('flights.table.destination'),
       render: (id) => <span className="font-medium text-green-600">{getCityName(id)}</span>
     },
     { 
       key: 'duration_minutes', 
-      label: 'Duration', 
+      label: t('flights.table.duration'), 
       render: (v) => formatDuration(v) 
     },
     { 
       key: 'price', 
-      label: 'Price', 
+      label: t('flights.table.price'), 
       render: (val) => <span className="font-bold text-green-700">${val.toLocaleString()}</span>
     },
     { 
       key: 'website', 
-      label: 'Data Source', 
+      label: t('flights.table.source'), 
       render: (url) => {
         if (!url) return '—';
         const href = url.startsWith('http') ? url : `https://${url}`;
@@ -90,7 +91,7 @@ export default function Flights() {
             rel="noopener noreferrer" 
             className="inline-flex items-center px-3 py-1 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 font-medium text-xs"
           >
-            <span>Visit {url}</span>
+            <span>{t('flights.visit_source')} {url}</span>
             <span className="ml-1 text-[10px]">↗</span>
           </a>
         );
@@ -102,33 +103,34 @@ export default function Flights() {
 
   return (
     <div>
-      <PageHeader icon="✈️" title="Flights" subtitle="Manage routes and airfares" />
+      <PageHeader 
+      icon="✈️" 
+      title={t('nav.flights')}
+      subtitle={t('flights.subtitle')} 
+      />
 
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
         <div>
-          <label className="label">From City</label>
+          <label className="label">{t('flights.filter.from_label')}</label>
           <select className="input" value={fromCityId} onChange={(e) => setFromCityId(e.target.value)}>
-            <option value="">All Origins</option>
+            <option value="">{t('flights.filter.all_origins')}</option>
             {cities.map(c => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label">To City</label>
+          <label className="label">{t('flights.filter.to_label')}</label>
           <select className="input" value={toCityId} onChange={(e) => setToCityId(e.target.value)}>
-            <option value="">All Destinations</option>
+            <option value="">{t('flights.filter.all_destinations')}</option>
             {cities.map(c => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="label">Max Price ($)</label>
+          <label className="label">{t('flights.filter.price_label')}</label>
           <input 
-            type="number" 
-            className="input" 
-            placeholder="Max price..." 
-            value={maxPrice} 
-            onChange={(e) => setMaxPrice(e.target.value)}
+            type="number" className="input" placeholder={t('flights.filter.price_placeholder')}
+            value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)}
           />
         </div>
       </div>

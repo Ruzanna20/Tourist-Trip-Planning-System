@@ -345,5 +345,65 @@ func (h *TripHandlers) CompleteTripHandler(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Trip marked as completed"})
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// SwapActivityHandler godoc
+// @Summary Swap an attraction with its alternative
+// @Description Replaces the current attraction of an activity with a new one by name
+// @Security BearerAuth
+// @Tags Trips
+// @Param id path int true "Activity ID"
+// @Param body body object true "New attraction name"
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Router /api/itinerary/activities/{id}/swap [post]
+func (h *TripHandlers) SwapActivityHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	vars := mux.Vars(r)
+	activityID, errA := strconv.ParseInt(vars["id"], 10, 64)
+
+	l := slog.With("user_id", userID, "activity_id", activityID, "path", r.URL.Path)
+
+	if err != nil || userID <= 0 {
+		l.Error("Unauthorized access: invalid or missing X-User-ID")
+		http.Error(w, "Authentication error", http.StatusUnauthorized)
+		return
+	}
+
+	if errA != nil || activityID <= 0 {
+		l.Warn("Invalid Activity ID format", "activity_id_raw", vars["id"])
+		http.Error(w, "Invalid Activity ID format", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		NewName string `json:"new_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		l.Warn("Invalid swap body", "error", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.NewName == "" {
+		l.Warn("Missing new attraction name")
+		http.Error(w, "New attraction name is required", http.StatusBadRequest)
+		return
+	}
+
+	l.Info("Executing attraction swap", "new_entity_name", req.NewName)
+	err = h.TripPlanningService.SwapAttraction(activityID, req.NewName)
+	if err != nil {
+		l.Error("Failed to swap attraction", "error", err)
+		http.Error(w, "Failed to swap attraction: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+	})
 }
