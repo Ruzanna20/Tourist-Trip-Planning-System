@@ -85,18 +85,23 @@ func (c *Consumer) Start(ctx context.Context) {
 			notificationID, errNotify := c.notifService.CreateNotification(userID, tripID, msg, "TRIP_READY")
 
 			if errNotify == nil {
+				trip, _ := c.tripService.GetTripByID(tripID)
+				title := ""
+				if trip != nil {
+					title = trip.Title
+				}
+
 				payload := map[string]interface{}{
 					"id":         notificationID,
 					"message":    msg,
 					"trip_id":    tripID,
+					"trip_title": title,
 					"type":       "TRIP_READY",
 					"is_read":    false,
 					"created_at": time.Now().Format(time.RFC3339),
 				}
 				data, _ := json.Marshal(payload)
-				c.hub.SendNotification(userID, string(data), tripID)
-			} else {
-				slog.Error("Failed to save notification via NotificationService", "error", errNotify)
+				c.hub.SendNotification(userID, data)
 			}
 		} else {
 			slog.Error("Failed to generate trip options", "trip_id", tripID, "error", err)

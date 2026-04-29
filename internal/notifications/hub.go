@@ -1,7 +1,7 @@
 package notifications
 
 import (
-	"encoding/json"
+	"log/slog"
 	"net/http"
 	"sync"
 
@@ -36,18 +36,21 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request, userID int) {
 
 }
 
-func (h *Hub) SendNotification(userID int, message string, tripID int) {
+func (h *Hub) SendNotification(userID int, data []byte) {
 	h.mu.Lock()
 	conn, exists := h.clients[userID]
 	h.mu.Unlock()
 
 	if exists {
-		payload := map[string]interface{}{
-			"message": message,
-			"trip_id": tripID,
-			"type":    "TRIP_READY",
+		err := conn.WriteMessage(websocket.TextMessage, data)
+		if err != nil {
+			slog.Error("Failed to send WS message", "userID", userID, "error", err)
+			conn.Close()
+			h.mu.Lock()
+			delete(h.clients, userID)
+			h.mu.Unlock()
 		}
-		data, _ := json.Marshal(payload)
-		conn.WriteMessage(websocket.TextMessage, data)
+	} else {
+		slog.Warn("WS: User not connected", "userID", userID)
 	}
 }

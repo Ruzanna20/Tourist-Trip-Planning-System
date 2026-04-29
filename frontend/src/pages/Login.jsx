@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next' // Ավելացված է
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const { t } = useTranslation() // Ավելացված է
+  const { t } = useTranslation()
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,7 +19,6 @@ export default function Login() {
       await login(form.username, form.password)
       navigate('/dashboard')
     } catch (err) {
-      // Օգտագործում ենք hy.json-ի սխալի հաղորդագրությունը
       setError(err.response?.data || t('auth.login.error_invalid'))
     } finally {
       setLoading(false)
@@ -31,7 +30,7 @@ export default function Login() {
       <div className="card w-full max-w-sm p-8 bg-white rounded-[32px] shadow-xl">
         <div className="text-center mb-6">
           <span className="text-4xl">🗺️</span>
-          <h1 className="text-2xl font-black text-gray-900 mt-2 uppercase tracking-tight">
+          <h1 className="text-2xl font-black text-gray-900 mt-2">
             {t('auth.login.title')}
           </h1>
           <p className="text-sm text-gray-500 font-medium">
@@ -47,7 +46,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2 block ml-1">
+            <label className="text-[10px] font-black capitalize text-gray-400 tracking-widest mb-2 block ml-1">
               {t('auth.login.username_label')}
             </label>
             <input
@@ -60,7 +59,7 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2 block ml-1">
+            <label className="text-[10px] font-black capitalize text-gray-400 tracking-widest mb-2 block ml-1">
               {t('auth.login.password_label')}
             </label>
             <input
@@ -75,7 +74,7 @@ export default function Login() {
           <button 
             type="submit" 
             disabled={loading} 
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg transition-all active:scale-95 disabled:opacity-50"
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black capitalize text-xs tracking-[0.2em] shadow-lg transition-all active:scale-95 disabled:opacity-50"
           >
             {loading ? t('auth.login.loading_btn') : t('auth.login.submit_btn')}
           </button>
@@ -83,7 +82,7 @@ export default function Login() {
 
         <p className="mt-6 text-center text-sm text-gray-500 font-medium">
           {t('auth.login.no_account')}{' '}
-          <Link to="/register" className="text-blue-600 hover:underline font-black uppercase text-xs tracking-tighter">
+          <Link to="/register" className="text-blue-600 hover:underline font-black capitalize text-xs tracking-tighter">
             {t('auth.login.register_link')}
           </Link>
         </p>

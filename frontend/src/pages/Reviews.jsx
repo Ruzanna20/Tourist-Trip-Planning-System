@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { getUserReviews, createReview, deleteReview } from '../api/reviews'
 import { getVisitedEntities } from '../api/resources' 
 import PageHeader from '../components/PageHeader'
+import Swal from 'sweetalert2'
 
 function Stars({ rating }) {
   return (
@@ -71,11 +72,10 @@ export default function Reviews() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.entity_id) {
-      setError(t('reviews.error_select_place'))
-      return
+    if (!form.entity_id || form.entity_id === "0" || Number(form.entity_id) === 0) {
+      setError(t('reviews.error_select_place')); 
+      return;
     }
-
     setError('')
     setSubmitting(true)
     try {
@@ -85,24 +85,51 @@ export default function Reviews() {
         rating: form.rating,
         comment: form.comment,
       })
+
+      Swal.fire({
+      title: t('reviews.success_msg'),
+      icon: 'success',
+      confirmButtonText: 'Լավ',
+      confirmButtonColor: '#2563eb', 
+      borderRadius: '1rem',
+    })
+
       setForm({ entity_id: '', rating: 5, comment: '' })
       fetchReviews()
-      alert(t('reviews.success_msg'))
     } catch (err) {
-      setError(err.response?.data?.message || t('reviews.error_submit'))
+      const msg = err.response?.data?.error || t('reviews.error_submit')
+
+      Swal.fire({
+      title: 'Սխալ',
+      text: msg,
+      icon: 'error',
+      confirmButtonText: 'Փակել'
+    })
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm(t('reviews.confirm_delete'))) return
-    try {
-      await deleteReview(id)
-      fetchReviews()
-    } catch (err) {
-      alert(t('reviews.error_delete'))
-    }
+    Swal.fire({
+      title: t('reviews.confirm_delete'),
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444', 
+      cancelButtonColor: '#6b7280', 
+      confirmButtonText: 'Այո, ջնջել',
+      cancelButtonText: 'Չեղարկել'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await deleteReview(id)
+          fetchReviews()
+          Swal.fire('Ջնջված է', '', 'success')
+        } catch (err) {
+          Swal.fire('Սխալ', t('reviews.error_delete'), 'error')
+        }
+      }
+    })
   }
 
   return (
@@ -127,7 +154,7 @@ export default function Reviews() {
                   }`}
                 >
                   <span className="text-3xl">{type.icon}</span>
-                  <span className="text-xs font-bold uppercase tracking-tight">{type.label}</span>
+                  <span className="text-xs font-bold">{type.label}</span>
                 </button>
               ))}
             </div>
@@ -142,9 +169,16 @@ export default function Reviews() {
               required
             >
               <option value="">{t('reviews.choose_option')}</option>
-              {entities.map((e) => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
+              {entities.map((e) => {
+
+                const actualId = e.id || e.hotel_id || e.attraction_id || e.restaurant_id;
+                
+                return (
+                  <option key={actualId || e.name} value={actualId}>
+                    {e.name}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -206,7 +240,7 @@ export default function Reviews() {
             {reviews.map((rev) => {
               const typeInfo = ENTITY_TYPES.find((t) => t.value === rev.entity_type)
               return (
-                <div key={rev.review_id} className="card p-6 relative group hover:shadow-xl transition-all border-gray-100">
+                <div key={rev.review_id} className="card p-6 relative group hover:shadow-xl transition-all border-gray-100 min-h-[160px]">
                   <button 
                     onClick={() => handleDelete(rev.review_id)}
                     className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50"
@@ -215,21 +249,20 @@ export default function Reviews() {
                   </button>
 
                   <div className="flex flex-col gap-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-white shadow-sm border border-gray-50 rounded-xl flex items-center justify-center text-2xl">
-                          {typeInfo?.icon ?? '📌'}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-gray-900 truncate pr-6 text-lg">
-                            {rev.entity_name || `${rev.entity_type} #${rev.entity_id}`}
-                          </h3>
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            {new Date(rev.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-12 h-12 bg-white shadow-sm border border-gray-50 rounded-xl flex items-center justify-center text-2xl">
+                        {typeInfo?.icon ?? '📌'}
+                      </div>
+                      <div className="flex-1 min-w-0 pr-8"> 
+                        <h3 className="font-bold text-gray-900 text-lg break-words whitespace-normal leading-tight">
+                          {rev.entity_name || `${rev.entity_type} #${rev.entity_id}`}
+                        </h3>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mt-1">
+                          {new Date(rev.created_at).toLocaleDateString()}
+                        </span>
                       </div>
                     </div>
+                    
                     
                     <div className="flex items-center gap-2 bg-blue-50/50 self-start px-3 py-1 rounded-lg">
                       <Stars rating={rev.rating} />

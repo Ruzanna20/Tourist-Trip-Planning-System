@@ -20,7 +20,7 @@ func (r *NotificationRepository) SaveNotification(userID int, tripID int, messag
 	var id int
 	query := `
 		INSERT INTO notifications (user_id, trip_id, message, type, is_read, created_at)
-		VALUES ($1, $2, $3, $4, false, NOW())
+		VALUES ($1, $2, $3, $4, false, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Yerevan')
 		RETURNING id
 	`
 	err := r.db.QueryRow(query, userID, tripID, message, msgType).Scan(&id)

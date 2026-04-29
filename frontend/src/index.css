@@ -5,7 +5,6 @@
 @layer base {
   body {
     @apply text-gray-900;
-    /* Soft sky-to-ocean gradient background for all pages */
     background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 35%, #ecfdf5 65%, #f0f9ff 100%);
     background-attachment: fixed;
     min-height: 100vh;

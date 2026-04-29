@@ -31,10 +31,21 @@ function WebSocketListener() {
   useEffect(() => {
     if (!user) return;
 
-    const userID = user.user_id || user.sub;
-    if (!userID) return;
+    const userID = user.user_id || user.id || user.ID || user.UserID;
+    if (!userID) {
+      console.error("No User ID found in user object!");
+      return;
+    }
 
     const socket = new WebSocket(`ws://localhost:8080/ws?userID=${userID}`);
+
+    socket.onopen = () => {
+      console.log("WebSocket Connected Successfully!");
+    };
+
+    socket.onerror = (error) => {
+      console.error("WebSocket Error:", error);
+    };
 
     socket.onmessage = (event) => {
       try {
@@ -68,14 +79,14 @@ function WebSocketListener() {
             trip_id: finalData.trip_id,
             trip_title: finalData.trip_title,
             is_read: false,
-            created_at: new Date().toISOString()
+            created_at: new Date().toLocaleString()
           };
 
           setNotifications(prev => [newNotification, ...prev]);
           setUnreadCount(prev => prev + 1);
         }
       } catch (err) {
-        console.error("❌ WS Message Error:", err);
+        console.error("WS Message Error:", err);
       }
     };
 

@@ -216,14 +216,13 @@ func (h *TripHandlers) SelectTripOption(w http.ResponseWriter, r *http.Request) 
 		req.HotelID,
 		req.OutboundFlightID,
 		req.InboundFlightID)
+
 	if err != nil {
-		l.Error("Failed to finalize trip plan", "tier", req.Tier, "error", err)
-		http.Error(w, "Failed to finalize trip: "+err.Error(), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 }
 
 // DeleteTripHandler godoc

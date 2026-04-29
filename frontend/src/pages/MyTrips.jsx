@@ -96,11 +96,18 @@ export default function MyTrips() {
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
 
       {!loading && trips.length === 0 && !error && (
-        <div className="card text-center py-16">
-          <p className="text-4xl mb-3">✈️</p>
-          <p className="font-medium text-gray-700">{t('trips.no_trips_title')}</p>
-          <p className="text-sm text-gray-400 mt-1 mb-5">{t('trips.no_trips_msg')}</p>
-          <Link to="/trips/create" className="btn-primary inline-flex">{t('trips.start_planning')}</Link>
+        <div className="flex flex-col items-center justify-center min-h-[400px] w-full bg-white/50 backdrop-blur-md rounded-[40px] border border-white/20 shadow-xl p-12 text-center">
+          <div className="bg-blue-100/50 p-6 rounded-full mb-6">
+            <span className="text-5xl">✈️</span>
+          </div>
+          
+          <h3 className="font-medium text-gray-700">
+            {t('trips.no_trips_title')}
+          </h3>
+          
+          <p className="text-sm text-gray-400 mt-1 mb-5">
+            {t('trips.no_trips_msg')}
+          </p>
         </div>
       )}
 

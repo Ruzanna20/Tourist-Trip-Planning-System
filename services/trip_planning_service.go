@@ -250,13 +250,28 @@ func (s *TripPlanningService) PopulateItineraryDetails(tx *sql.Tx,
 		return fmt.Errorf("no attractions found for city %d", cityID)
 	}
 
+	trip, err := s.TripRepo.GetTripByID(tripID)
+	if err != nil {
+		return fmt.Errorf("failed to get trip %d: %v", tripID, err)
+	}
+
+	prefsPtr, err := s.UserPreferencesRepo.GetByUserID(trip.UserID)
+	prefMap := make(map[string]bool)
+
+	if err == nil && prefsPtr != nil {
+		categories := strings.Split(prefsPtr.PreferredCategories, ",")
+		for _, catName := range categories {
+			prefMap[strings.ToLower(strings.TrimSpace(catName))] = true
+		}
+	}
+
 	allRestaurants, err := s.RestaurantRepo.GetBestRestaurantByTier(cityID, tier)
 	if err != nil || len(allRestaurants) == 0 {
-		slog.Warn("No restaurants found for this city and tier",
-			"trip_id", tripID, "city_id", cityID, "tier", tier)
+		l.Warn("No restaurants found for this city and tier", "trip_id", tripID, "city_id", cityID, "tier", tier)
 	}
 
 	usedAttractions := make(map[int]bool)
+	totalFound := 0
 
 	for i, dayPlan := range itineraries {
 		dayNum := i + 1
@@ -277,9 +292,13 @@ func (s *TripPlanningService) PopulateItineraryDetails(tx *sql.Tx,
 			var firstAttraction *models.Attraction
 
 			for j := range allAttractions {
-				if !usedAttractions[allAttractions[j].AttractionID] {
-					firstAttraction = &allAttractions[j]
+				attr := &allAttractions[j]
+				attrCategory := strings.ToLower(strings.TrimSpace(attr.Category))
+
+				if !usedAttractions[attr.AttractionID] && prefMap[attrCategory] {
+					firstAttraction = attr
 					usedAttractions[firstAttraction.AttractionID] = true
+					totalFound++
 					s.saveActivity(tx, currentDayID, "attraction", firstAttraction.AttractionID, 1, allAttractions, dayPlan.Date)
 					lastLat, lastLon = firstAttraction.Latitude, firstAttraction.Longitude
 					break
@@ -302,9 +321,12 @@ func (s *TripPlanningService) PopulateItineraryDetails(tx *sql.Tx,
 				}
 
 				for j := range allAttractions {
-					if !usedAttractions[allAttractions[j].AttractionID] && (firstAttraction.EntryFee+allAttractions[j].EntryFee <= dailyAttractionLimit) {
-						usedAttractions[allAttractions[j].AttractionID] = true
-						s.saveActivity(tx, currentDayID, "attraction", allAttractions[j].AttractionID, 3, allAttractions, dayPlan.Date)
+					attr := &allAttractions[j]
+					attrCategory := strings.ToLower(strings.TrimSpace(attr.Category))
+					if !usedAttractions[attr.AttractionID] && prefMap[attrCategory] && (firstAttraction.EntryFee+attr.EntryFee <= dailyAttractionLimit) {
+						usedAttractions[attr.AttractionID] = true
+						totalFound++
+						s.saveActivity(tx, currentDayID, "attraction", attr.AttractionID, 3, allAttractions, dayPlan.Date)
 						break
 					}
 				}
@@ -312,6 +334,11 @@ func (s *TripPlanningService) PopulateItineraryDetails(tx *sql.Tx,
 			}
 		}
 	}
+
+	if totalFound == 0 {
+		return fmt.Errorf("Ցավոք, ձեր նախընտրած կատեգորիաներին համապատասխանող տեսարժան վայրեր այս քաղաքում չգտնվեցին")
+	}
+
 	return nil
 }
 

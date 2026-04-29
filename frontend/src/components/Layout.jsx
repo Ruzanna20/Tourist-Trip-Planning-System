@@ -2,16 +2,19 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTranslation } from 'react-i18next';
 import { useNotifications } from '../context/NotificationContext';
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export default function Layout() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const { notifications, unreadCount, markAsRead, deleteNotification } = useNotifications()  
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
   const [showNotifications, setShowNotifications] = useState(false); 
   const notificationRef = useRef(null);
+  const isDashboard = location.pathname === '/dashboard';
+  const [isNavOpen, setIsNavOpen] = useState(isDashboard); 
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -21,195 +24,234 @@ export default function Layout() {
         setShowNotifications(false);
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNotifications]);
 
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setIsNavOpen(isDashboard);
+  }, [location.pathname, isDashboard]);
+
   const handleLogout = () => {
-    logout()
-    navigate('/login')
+    e.stopPropagation();
+    logout();
+    navigate('/login');
   }
 
   const resourceItems = [
-    { to: '/countries',   label: t('nav.countries'),     icon: '🌍' },
-    { to: '/cities',      label: t('nav.cities'),        icon: '🏙️' },
-    { to: '/attractions', label: t('nav.attractions'),   icon: '🎡' },
-    { to: '/hotels',      label: t('nav.hotels'),        icon: '🏨' },
-    { to: '/restaurants', label: t('nav.restaurants'),   icon: '🍽️' },
-    { to: '/flights',     label: t('nav.flights'),       icon: '🛫' },
+    { to: '/countries',   label: t('nav.countries'),    icon: '🌍' },
+    { to: '/cities',      label: t('nav.cities'),       icon: '🏙️' },
+    { to: '/attractions', label: t('nav.attractions'),  icon: '🎡' },
+    { to: '/hotels',      label: t('nav.hotels'),       icon: '🏨' },
+    { to: '/restaurants', label: t('nav.restaurants'),  icon: '🍽️' },
+    { to: '/flights',     label: t('nav.flights'),      icon: '🛫' },
   ]
 
   const accountItems = [
-    { to: '/preferences', label: t('nav.preferences'),  icon: '⚙️' },
-    { to: '/reviews',     label: t('nav.write_review'), icon: '⭐' },
-  ]
+    { to: '/reviews', label: t('nav.write_review'), icon: '⭐' }
+  ];
+  
+  const Dropdown = ({ label, icon, items, isAccount = false }) => {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
 
-  const Dropdown = ({ label, icon, items }) => (
-    <div className="relative group flex-shrink-0">
-      <button className="flex items-center gap-1.5 px-3 py-2 text-sm font-black text-slate-700 hover:text-blue-600 transition-colors uppercase tracking-tight">
-        <span>{icon}</span> {label} <span className="text-[8px] opacity-40 ml-0.5">▼</span>
-      </button>
-      
-      <div className="absolute left-0 mt-0 min-w-max pt-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-[100]">
-        <div className="bg-white border border-slate-100 shadow-2xl rounded-[24px] overflow-hidden p-2 space-y-1 text-left">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 pr-8 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                  isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
-                }`
-              }
-            >
-              <span className="text-lg">{item.icon}</span> {item.label}
-            </NavLink>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-
-  return (
-    <div className="flex flex-col min-h-screen bg-[#ececii] font-sans">
-      <header className="sticky top-0 z-[110] bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-3 flex items-center justify-between shadow-sm">
+    return (
+      <div className="relative group">
+        <button 
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-black text-white/90 hover:text-white transition-all capitalize tracking-normal focus:outline-none"
+        >
+          <span>{icon}</span> {label} 
+          <span className="text-[10px] opacity-40 ml-1 transition-transform group-hover:rotate-180">▼</span>
+        </button>
         
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-2xl" onClick={() => navigate('/dashboard')} style={{cursor:'pointer'}}>🗺️</span>
-          <p className="font-black text-lg uppercase tracking-tighter text-slate-900 italic">
-            {t('dashboard.hero.title')}
-          </p>
-        </div>
-
-        <nav className="hidden lg:flex items-center gap-1 xl:gap-2 flex-grow justify-center mx-4">
-          <NavLink to="/dashboard" className={({ isActive }) => `flex items-center gap-2 px-5 py-2.5 rounded-full text-xs xl:text-sm font-black uppercase tracking-tight transition-all ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-100'}`}>
-            🏠 {t('nav.dashboard')}
-          </NavLink>
-          <NavLink to="/trips" className={({ isActive }) => `flex items-center gap-2 px-5 py-2.5 rounded-full text-xs xl:text-sm font-black uppercase tracking-tight transition-all ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-100'}`}>
-            🗂️ {t('nav.my_trips')}
-          </NavLink>
-          <Dropdown label={t('nav.resources')} icon="📚" items={resourceItems} />
-          <Dropdown label={t('nav.account')} icon="👤" items={accountItems} />
-        </nav>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="relative" ref={notificationRef}>
-            <button 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-full hover:bg-slate-50 transition-all"
-            >
-              <span className="text-xl">🔔</span>
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full border-2 border-white animate-pulse">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 mt-3 w-80 bg-white border border-slate-100 shadow-2xl rounded-[24px] overflow-hidden z-20 transition-all">
-                <div className="p-4 border-b border-slate-50 flex justify-between items-center">
-                  <h3 className="font-black text-xs uppercase tracking-widest text-slate-400">{t('nav.notifications')}</h3>
-                  <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">
-                    {unreadCount} {t('nav.new')}
-                  </span>
-                </div>
-                
-                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                  {notifications.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-sm">
-                       {t('nav.empty')}
-                    </div>
-                  ) : (
-                    notifications.map((n) => (
-                      <div 
-                        key={n.id} 
-                        className="group relative border-b border-slate-50 hover:bg-slate-50 transition-all"
-                      >
-                        <div 
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            await markAsRead(n.id); 
-                            setShowNotifications(false);
-                            if(n.trip_id) navigate(`/trips/${n.trip_id}/options`); 
-                          }}
-                          className={`p-4 cursor-pointer ${!n.is_read ? 'bg-blue-50/40' : 'bg-white'}`}
-                        >
-                          <div className="text-[10px] font-black text-blue-500 uppercase mb-1">
-                            📍 {n.trip_title || t('nav.trip_update')}
-                          </div>
-                          <p className={`text-sm leading-tight ${!n.is_read ? 'font-bold text-slate-900' : 'text-slate-500'}`}>
-                            {t(`nav.${n.type?.toLowerCase()}`, n.message)}
-                          </p>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">
-                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); 
-                            deleteNotification(n.id);
-                          }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-full text-slate-300 hover:text-red-500 transition-all"
-                          title={t('nav.delete')}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
+        <div className={`absolute ${isAccount ? 'right-0' : 'left-0'} mt-0 min-w-[240px] pt-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 z-[160] transform translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto`}>
+          <div className="bg-slate-900 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] rounded-[28px] overflow-hidden p-2 space-y-1 text-left">
+            
+            {isAccount && user && (
+              <div className="px-5 py-4 mb-2 border-b border-white/5 bg-white/5 rounded-t-xl text-left pointer-events-none">
+                <p className="text-sm font-black text-white capitalize">{user.first_name} {user.last_name}</p>
+                <p className="text-[11px] font-bold text-white/50 lowercase">{user.email}</p>
               </div>
             )}
+
+            {items.map((item) => (
+              <button
+                key={item.to}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation(); 
+                  navigate(item.to);
+                }}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-bold text-white/70 hover:bg-blue-600 hover:text-white transition-all text-left relative z-[170] cursor-pointer"
+              >
+                <span className="text-lg">{item.icon}</span> {item.label}
+              </button>
+            ))}
+
+            {isAccount && (
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  logout();
+                  navigate('/login');
+                }} 
+                className="flex items-center gap-3 w-full px-4 py-3 mt-1 rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/20 transition-all border-t border-white/5 text-left relative z-[170] cursor-pointer"
+              >
+                <span className="text-lg">🚪</span> {t('nav.logout')}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-[#f8f9fa] font-sans">
+      
+      {!isDashboard && !isNavOpen && (
+        <div className="fixed top-0 left-0 w-full z-[120] flex justify-center pt-4 pointer-events-none">
+          <button 
+            onClick={() => setIsNavOpen(true)}
+            className="pointer-events-auto bg-slate-900/90 backdrop-blur-md text-white px-8 py-2.5 rounded-full shadow-2xl border border-white/10 flex items-center gap-3 hover:bg-blue-600 transition-all group"
+          >
+            <span className="text-xs font-black uppercase tracking-[0.2em]">Մենյու</span>
+            <span className="group-hover:translate-y-0.5 transition-transform text-[10px]">▼</span>
+          </button>
+        </div>
+      )}
+
+      <header className={`fixed top-0 w-full z-[110] transition-all duration-500 
+        ${isNavOpen ? 'translate-y-0' : '-translate-y-full'} 
+        ${isDashboard && !isScrolled ? 'bg-transparent' : 'bg-slate-950/95 backdrop-blur-xl shadow-2xl'}`}>
+        
+        <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
+          <div 
+            className="flex items-center gap-3 cursor-pointer shrink-0 z-[120]" 
+            onClick={(e) => {
+              e.stopPropagation(); 
+              navigate('/dashboard');
+            }}
+          >
+            <span className="text-2xl">🗺️</span>
           </div>
 
-          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 text-sm font-black text-slate-700 hover:text-red-600 transition-colors uppercase tracking-tight group">
-            <span className="text-xl group-hover:rotate-12 transition-transform">🚪</span>
-            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">{t('nav.logout')}</span>
-          </button>
+            <nav className="hidden lg:flex items-center bg-white/5 backdrop-blur-md border border-white/10 rounded-full px-2 py-1">
+              <NavLink to="/dashboard" className={({ isActive }) => `px-5 py-2 rounded-full text-xs font-black capitalize transition-all ${isActive ? 'bg-blue-600 text-white' : 'text-white/80 hover:text-white hover:bg-white/5'}`}>
+                🏠 {t('nav.dashboard')}
+              </NavLink>
+              <NavLink to="/trips" className={({ isActive }) => `px-5 py-2 rounded-full text-xs font-black capitalize transition-all ${isActive ? 'bg-blue-600 text-white' : 'text-white/80 hover:text-white hover:bg-white/5'}`}>
+                🗂️ {t('nav.my_trips')}
+              </NavLink>
+              <NavLink to="/preferences" className={({ isActive }) => `px-5 py-2 rounded-full text-xs font-black capitalize transition-all ${isActive ? 'bg-blue-600 text-white' : 'text-white/80 hover:text-white hover:bg-white/5'}`}>
+                ⚙️ {t('nav.preferences')}
+              </NavLink>
+              <Dropdown label={t('nav.resources')} icon="📚" items={resourceItems} />
+
+              {!isDashboard && (
+                <button onClick={() => setIsNavOpen(false)} className="ml-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-all">
+                  ✕
+                </button>
+              )}
+            </nav>
+
+          <div className="flex items-center gap-4">
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all relative">
+                <span className="text-xl">🔔</span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] h-4 w-4 flex items-center justify-center rounded-full border-2 border-slate-900 animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-4 w-[450px] max-w-[90vw] bg-white border border-slate-100 shadow-2xl rounded-[28px] overflow-hidden z-20 animate-fade-in">
+                  <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="font-bold text-xs text-slate-500">{t('nav.notifications')}</h3>
+                    <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">{unreadCount} {t('nav.new')}</span>
+                  </div>
+                  <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-white">
+                    {notifications.length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 text-sm">{t('nav.empty')}</div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div key={n.id} className={`group relative border-b border-slate-50 hover:bg-slate-50 transition-all ${!n.is_read ? 'bg-blue-50/40' : 'bg-white'}`}>
+                          <div onClick={async (e) => {
+                                e.stopPropagation();
+                                await markAsRead(n.id); 
+                                setShowNotifications(false);
+                                if(n.trip_id) navigate(`/trips/${n.trip_id}/options`); 
+                              }}
+                              className="p-4 cursor-pointer"
+                          >
+                            <div className="text-[10px] font-black text-blue-500 mb-1">📍 {n.trip_title || t('nav.trip_update')}</div>
+                            <p className={`text-sm leading-relaxed ${!n.is_read ? 'font-bold text-slate-900' : 'text-slate-500'}`}>
+                              {t(`nav.${n.type?.toLowerCase()}`, n.message)}
+                            </p>
+                            <div className="flex justify-between items-center mt-2">
+                              <p className="text-[9px] text-slate-400 font-bold">{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+                                  className="absolute right-3 top-4 p-2 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-full text-slate-300 hover:text-red-500 transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Dropdown 
+              label={`${user?.first_name || user?.FirstName || t('nav.account')}`} 
+              items={accountItems} 
+              isAccount={true} 
+            />
+          </div>
         </div>
       </header>
 
-      <main className="flex-grow p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
+      <main className={`flex-grow transition-all duration-500 
+      ${isDashboard ? 'pt-0 bg-transparent' : 'pt-24 bg-[#f4f7fa]'}`}>
+        <div className={`${isDashboard ? 'w-full' : 'max-w-10xl mx-auto px-6'}`}>
           <Outlet />
         </div>
       </main>
 
-      <footer className="bg-[#0a0a1a] text-white py-12 px-6 mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col items-center">
+      <footer className="bg-[#0a0a1a] text-white py-16 px-6 mt-auto border-t border-white/5">
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-3xl">🗺️</span>
-            <p className="font-black text-2xl uppercase tracking-tighter italic text-white">
-               {t('dashboard.hero.title')}
-            </p>
+            <p className="font-black text-2xl capitalize italic text-white">{t('dashboard.hero.title')}</p>
           </div>
-          
-          <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-8">
-            © 2026 TravelPlan. {t('common.all_rights_reserved') || "All rights reserved."}
-          </p>
-
-          <div className="relative mb-10 group">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <span className="text-xs">🌐</span>
-            </div>
+          <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-8">© 2026 TravelPlan. {t('common.all_rights_reserved')}</p>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-xs">🌐</div>
             <select 
               value={i18n.language} 
               onChange={(e) => i18n.changeLanguage(e.target.value)}
-              className="bg-[#16162a] text-white border border-gray-800 rounded-2xl pl-10 pr-10 py-3 text-sm font-bold outline-none cursor-pointer hover:border-gray-600 transition-all appearance-none min-w-[200px] text-center"
+              className="bg-[#16162a] text-white border border-white/10 rounded-2xl pl-10 pr-12 py-3 text-sm font-bold outline-none cursor-pointer hover:border-blue-500 transition-all appearance-none min-w-[220px]"
             >
               <option value="hy">Հայերեն (ARM)</option>
               <option value="en">English (ENG)</option>
             </select>
-            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none opacity-40 text-[8px]">
-              ▼
-            </div>
+            <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none opacity-40 text-[8px]">▼</div>
           </div>
         </div>
       </footer>

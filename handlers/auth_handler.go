@@ -15,8 +15,9 @@ type Credentials struct {
 }
 
 type Response struct {
-	Token        string `json:"token,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
+	Token        string                 `json:"token,omitempty"`
+	RefreshToken string                 `json:"refresh_token,omitempty"`
+	User         map[string]interface{} `json:"user,omitempty"`
 }
 
 type RefreshRequest struct {
@@ -57,7 +58,7 @@ func (h *AuthHandlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, refreshToken, err := h.AuthService.Login(creds.Username, creds.Password)
+	token, refreshToken, user, err := h.AuthService.Login(creds.Username, creds.Password)
 	if err != nil {
 		slog.Warn("Unauthorized login attempt", "username", creds.Username)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
@@ -70,6 +71,12 @@ func (h *AuthHandlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(Response{
 		Token:        token,
 		RefreshToken: refreshToken,
+		User: map[string]interface{}{
+			"user_id":    user.UserID,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"email":      user.Email,
+		},
 	})
 }
 

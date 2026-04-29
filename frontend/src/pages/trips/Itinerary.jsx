@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom' // Ավելացվել է Link
+import { useParams, useNavigate, Link } from 'react-router-dom' 
 import { useTranslation } from 'react-i18next'
 import { getTripItinerary, getItineraryActivities, swapActivity, completeTrip } from '../../api/trips'
 import PageHeader from '../../components/PageHeader'
@@ -247,15 +247,43 @@ export default function Itinerary() {
   }, [loadData]);
 
   const handleComplete = async () => {
-    if (!window.confirm(t('trips.itinerary.confirm_complete') || "Mark this trip as Completed?")) return;
+    const result = await Swal.fire({
+      title: t('trips.itinerary.confirm_complete'),
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Այո',
+      cancelButtonText: 'Ոչ',
+      background: '#fff',
+      borderRadius: '24px'
+    });
+
+    if (!result.isConfirmed) return;
+
     setCompleting(true);
     try {
       await completeTrip(id);
-      alert(t('trips.itinerary.completed_success') || "Success! Trip marked as Completed.");
+      
+      Swal.fire({
+        title: 'Հաջողված է',
+        text: t('trips.itinerary.completed_success'),
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+        borderRadius: '24px'
+      });
+
       setIsCompleted(true);
       loadData();
     } catch (err) {
-      alert("Failed to complete trip.");
+      Swal.fire({
+        title: 'Սխալ',
+        text: "Failed to complete trip.",
+        icon: 'error',
+        confirmButtonColor: '#3085d6',
+        borderRadius: '24px'
+      });
     } finally {
       setCompleting(false);
     }

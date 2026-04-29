@@ -121,19 +121,28 @@ export default function CreateTrip() {
   }
 
   const handleSelect = async (opt) => {
-    setLoading(true)
-    try {
-      await selectTripOption(tripId, {
-        tier: opt.tier,
-        hotel_id: opt.hotel?.hotel_id || 0,
-        outbound_flight_id: opt.outbound_flight?.flight_id || 0,
-        inbound_flight_id: opt.inbound_flight?.flight_id || 0,
-      })
-      navigate(`/trips/${tripId}/itinerary`)
-    } catch (err) {
-      setError(t('trips.error_select'))
+  setLoading(true);
+  setError('');
+  try {
+    await selectTripOption(tripId, {
+      tier: opt.tier,
+      hotel_id: opt.hotel?.hotel_id || 0,
+      outbound_flight_id: opt.outbound_flight?.flight_id || 0,
+      inbound_flight_id: opt.inbound_flight?.flight_id || 0,
+    });
+    navigate(`/trips/${tripId}/itinerary`);
+  } catch (err) {
+        const backendMessage = err.response?.data?.error;
+        
+        if (backendMessage) {
+            setError(backendMessage); 
+        } else {
+            setError(t('trips.error_select'));
+        }
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
-      setLoading(false)
+        setLoading(false)
     }
   }
 
@@ -166,7 +175,22 @@ export default function CreateTrip() {
         ))}
       </div>
 
-      {error && <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm shadow-sm">{error}</div>}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 shadow-lg rounded-r-xl flex items-center gap-3">
+          <div className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">!</div>
+          <div className="flex-1">
+            <p className="font-bold">{error}</p>
+            {error.includes("նախընտրած") && (
+              <button 
+                onClick={() => navigate('/preferences')} 
+                className="text-xs underline hover:text-red-900 mt-1 block"
+              >
+                Փոխել նախասիրությունները
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {step === 1 ? (
         <div className="card shadow-xl p-8 border-t-4 border-blue-600">
@@ -229,7 +253,7 @@ export default function CreateTrip() {
                 className="input" 
                 value={form.total_price} 
                 onChange={handleChange('total_price')} 
-                placeholder={t('trips.form.budget_placeholder')} // "Ընդհանուր բյուջե"
+                placeholder={t('trips.form.budget_placeholder')}
                 required 
               />
             </div>

@@ -31,7 +31,7 @@ export default function Register() {
       <div className="card w-full max-w-sm p-8 bg-white rounded-[32px] shadow-xl">
         <div className="text-center mb-6">
           <span className="text-4xl">🗺️</span>
-          <h1 className="text-2xl font-black text-gray-900 mt-2 uppercase tracking-tight">
+          <h1 className="text-2xl font-black text-gray-900 mt-2">
             {t('auth.register.title')}
           </h1>
           <p className="text-sm text-gray-500 font-medium">
@@ -60,7 +60,7 @@ export default function Register() {
               />
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1 block ml-1">
+              <label className="text-[10px] font-black capitalize text-gray-400 tracking-widest mb-1 block ml-1">
                 {t('auth.register.last_name_label')}
               </label>
               <input 
@@ -73,7 +73,7 @@ export default function Register() {
             </div>
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1 block ml-1">
+            <label className="text-[10px] font-black capitalize text-gray-400 tracking-widest mb-1 block ml-1">
               {t('auth.register.email_label')}
             </label>
             <input 
@@ -85,7 +85,7 @@ export default function Register() {
             />
           </div>
           <div>
-            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1 block ml-1">
+            <label className="text-[10px] font-black capitalize text-gray-400 tracking-widest mb-1 block ml-1">
               {t('auth.register.password_label')}
             </label>
             <input 
@@ -99,7 +99,7 @@ export default function Register() {
           <button 
             type="submit" 
             disabled={loading} 
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-lg transition-all active:scale-95 disabled:opacity-50 mt-2"
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black capitalize text-xs tracking-[0.2em] shadow-lg transition-all active:scale-95 disabled:opacity-50 mt-2"
           >
             {loading ? t('auth.register.loading_btn') : t('auth.register.submit_btn')}
           </button>
@@ -107,7 +107,7 @@ export default function Register() {
 
         <p className="mt-6 text-center text-sm text-gray-500 font-medium">
           {t('auth.register.already_account')}{' '}
-          <Link to="/login" className="text-blue-600 hover:underline font-black uppercase text-xs tracking-tighter">
+          <Link to="/login" className="text-blue-600 hover:underline font-black text-xs tracking-tighter">
             {t('auth.register.login_link')}
           </Link>
         </p>
