@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getTripItinerary, getItineraryActivities, swapActivity, completeTrip } from '../../api/trips'
 import PageHeader from '../../components/PageHeader'
+import Swal from 'sweetalert2'
 
 const ACTIVITY_META = {
   hotel:      { icon: '🏨', color: 'bg-orange-50 border-orange-200 text-orange-700', modalHeader: 'bg-orange-500' },
