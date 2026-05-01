@@ -5,3 +5,7 @@ export const login = (username, password) =>
 
 export const refresh = (refreshToken) =>
   client.post('/refresh', { refresh_token: refreshToken }).then((r) => r.data)
+
+export const verifyEmail = async (email, code) => {
+  return await client.post('/api/auth/verify', { email, code }); 
+};

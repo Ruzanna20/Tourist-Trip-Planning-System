@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"travel-planning/services"
 )
 
@@ -58,15 +60,24 @@ func (h *AuthHandlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, refreshToken, user, err := h.AuthService.Login(creds.Username, creds.Password)
+	token, refreshToken, user, status, err := h.AuthService.Login(creds.Username, creds.Password)
 	if err != nil {
 		slog.Warn("Unauthorized login attempt", "username", creds.Username)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	slog.Info("User logged in successfully", "username", creds.Username)
+	if status == "unverifed" {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "unverified",
+			"email":   creds.Username,
+			"message": "Your account is not verified. A verification code has been sent to your email.",
+		})
+		return
+	}
 
+	slog.Info("User logged in successfully", "username", creds.Username)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Response{
 		Token:        token,
@@ -110,5 +121,72 @@ func (h *AuthHandlers) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Response{
 		Token: newAccessToken,
+	})
+}
+
+// VerifyEmailHandler godoc
+// @Summary Verify user email
+// @Description Verify a user's email address using the 6-digit code stored in Redis
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body struct{Email string `json:"email"`; Code string `json:"code"`} true "Verification details"
+// @Success 200 {object} map[string]string "message: Email verified successfully"
+// @Failure 400 {string} string "Invalid or expired verification code"
+// @Router /api/auth/verify [post]
+func (h *AuthHandlers) VerifyEmailHandler(w http.ResponseWriter, r *http.Request) {
+	slog.Info("VerifyEmailHandler hit!", "email", r.Method)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	slog.Info("RECEIVED_DATA", "email", req.Email, "code", req.Code)
+
+	ctx := context.Background()
+	savedCode, err := h.AuthService.RedisCache.GetVerificationCode(ctx, req.Email)
+	if err != nil {
+		slog.Warn("Verification failed: no code found for email", "email", req.Email)
+		http.Error(w, "Invalid or expired verification code", http.StatusBadRequest)
+		return
+	}
+
+	slog.Info("REDIS_DATA", "saved", savedCode, "error", err)
+
+	savedCode = strings.Trim(savedCode, "\" \n\r\t")
+	inputCode := strings.Trim(req.Code, "\" \n\r\t")
+
+	slog.Info("Final Check", "stored", savedCode, "input", inputCode)
+
+	slog.Info("VERIFICATION_DEBUG",
+		"stored_raw", savedCode,
+		"input_raw", inputCode,
+		"match", savedCode == inputCode)
+
+	slog.Info("Comparing codes", "stored", savedCode, "input", inputCode)
+	if savedCode != inputCode {
+		slog.Warn("Verification failed: code mismatch", "email", req.Email)
+		http.Error(w, "Invalid or expired verification code", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.AuthService.UserRepo.MarkAsVerified(req.Email); err != nil {
+		slog.Error("Failed to update database", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("Email verified successfully", "email", req.Email)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Email verified successfully. You can now log in.",
 	})
 }

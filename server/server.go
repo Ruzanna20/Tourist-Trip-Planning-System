@@ -55,6 +55,7 @@ func (s *AppServer) Start(port string) {
 	slog.Info("Starting Application Server", "port", port)
 
 	r := mux.NewRouter()
+	r.Use(mux.CORSMethodMiddleware(r))
 
 	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
@@ -64,6 +65,7 @@ func (s *AppServer) Start(port string) {
 	// Auth
 	r.HandleFunc("/login", s.AuthHandlers.LoginHandler).Methods("POST")
 	r.HandleFunc("/refresh", s.AuthHandlers.RefreshHandler).Methods("POST")
+	r.HandleFunc("/api/auth/verify", s.AuthHandlers.VerifyEmailHandler).Methods("POST", "OPTIONS")
 
 	// Resources
 	r.HandleFunc("/api/cities", authMiddleware(s.ResourceHandlers.GetAllCitiesHandler)).Methods("GET")
@@ -121,6 +123,7 @@ func (s *AppServer) Start(port string) {
 		corsHandlers.AllowedOrigins([]string{"http://localhost:5173"}),
 		corsHandlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
 		corsHandlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
+		corsHandlers.AllowCredentials(),
 	)(r)
 
 	if err := http.ListenAndServe(port, corsHandler); err != nil {

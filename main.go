@@ -90,8 +90,14 @@ func main() {
 		jwtSecret = "default-development-secret-must-be-changed"
 	}
 	jwtService := services.NewJWTService(jwtSecret)
+	mailService := services.NewMailService(
+		"smtp.gmail.com",
+		587,
+		os.Getenv("EMAIL_USER"),
+		os.Getenv("EMAIL_PASSWORD"),
+	)
 
-	authService := services.NewAuthService(userRepo, jwtService)
+	authService := services.NewAuthService(userRepo, jwtService, cacheService, mailService)
 	userService := services.NewUserService(userRepo, userPreferencesRepo)
 	resourceService := services.NewResourceService(hotelRepo, cityRepo, attractionRepo, countryRepo, restaurantRepo, flightRepo)
 	reviewService := services.NewReviewService(reviewRepo)
@@ -215,7 +221,7 @@ func main() {
 	// }()
 
 	authHandlers := handlers.NewAuthHandlers(authService)
-	userHandlers := handlers.NewUserHandlers(userService)
+	userHandlers := handlers.NewUserHandlers(userService, authService)
 	resourceHandlers := handlers.NewResourceHandlers(resourceService)
 	reviewHandlers := handlers.NewReviewHandlers(reviewService)
 

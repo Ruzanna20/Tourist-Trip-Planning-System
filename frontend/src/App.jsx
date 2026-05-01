@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { NotificationProvider, useNotifications } from './context/NotificationContext'; // Նոր context-ը
+import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import toast, { Toaster } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
@@ -21,37 +21,26 @@ import Restaurants from './pages/Restaurants';
 import Flights from './pages/Flights';
 import Preferences from './pages/Preferences';
 import Reviews from './pages/Reviews';
+import Landing from './pages/Landing'; 
 
 function WebSocketListener() {
   const { user } = useAuth();
   const { setNotifications, setUnreadCount } = useNotifications(); 
   const { t } = useTranslation();
 
-
   useEffect(() => {
     if (!user) return;
 
     const userID = user.user_id || user.id || user.ID || user.UserID;
-    if (!userID) {
-      console.error("No User ID found in user object!");
-      return;
-    }
+    if (!userID) return;
 
     const socket = new WebSocket(`ws://localhost:8080/ws?userID=${userID}`);
-
-    socket.onopen = () => {
-      console.log("WebSocket Connected Successfully!");
-    };
-
-    socket.onerror = (error) => {
-      console.error("WebSocket Error:", error);
-    };
 
     socket.onmessage = (event) => {
       try {
         const rawData = JSON.parse(event.data);
-
         let finalData = rawData;
+        
         if (typeof rawData.message === 'string' && rawData.message.startsWith('{')) {
             const parsedInner = JSON.parse(rawData.message);  
             finalData = { ...rawData, ...parsedInner };
@@ -93,9 +82,46 @@ function WebSocketListener() {
     return () => {
       if (socket.readyState === 1) socket.close();
     };
-  }, [user, setNotifications, setUnreadCount]);
+  }, [user, setNotifications, setUnreadCount, t]);
 
   return null;
+}
+
+function AppRoutes() {
+  const { user } = useAuth();
+  console.log("Current User:", user);
+
+
+  return (
+    <Routes>
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Landing />} />
+      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Landing />} />
+      <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Landing />} />
+      <Route
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/trips" element={<MyTrips />} />
+        <Route path="/trips/create" element={<CreateTrip />} />
+        <Route path="/trips/:id/itinerary" element={<Itinerary />} />
+        <Route path="/trips/:id/options" element={<CreateTrip />} />
+        <Route path="/countries" element={<Countries />} />
+        <Route path="/cities" element={<Cities />} />
+        <Route path="/attractions" element={<Attractions />} />
+        <Route path="/hotels" element={<Hotels />} />
+        <Route path="/restaurants" element={<Restaurants />} />
+        <Route path="/flights" element={<Flights />} />
+        <Route path="/preferences" element={<Preferences />} />
+        <Route path="/reviews" element={<Reviews />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default function App() {
@@ -105,36 +131,7 @@ export default function App() {
         <NotificationProvider>
           <Toaster />
           <WebSocketListener />
-
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-
-            <Route
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/trips" element={<MyTrips />} />
-              <Route path="/trips/create" element={<CreateTrip />} />
-              <Route path="/trips/:id/itinerary" element={<Itinerary />} />
-              <Route path="/trips/:id/options" element={<CreateTrip />} />
-              <Route path="/countries" element={<Countries />} />
-              <Route path="/cities" element={<Cities />} />
-              <Route path="/attractions" element={<Attractions />} />
-              <Route path="/hotels" element={<Hotels />} />
-              <Route path="/restaurants" element={<Restaurants />} />
-              <Route path="/flights" element={<Flights />} />
-              <Route path="/preferences" element={<Preferences />} />
-              <Route path="/reviews" element={<Reviews />} />
-            </Route>
-
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+          <AppRoutes />
         </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>

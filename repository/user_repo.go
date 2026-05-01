@@ -23,7 +23,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	user := models.User{}
 
-	query := `SELECT user_id, first_name, last_name, email, password_hash, created_at
+	query := `SELECT user_id, first_name, last_name, email, password_hash, is_verified, created_at
               FROM users WHERE email = $1`
 
 	err := r.db.QueryRow(query, email).Scan(
@@ -32,6 +32,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 		&user.LastName,
 		&user.Email,
 		&user.PasswordHash,
+		&user.IsVerified,
 		&user.CreatedAt,
 	)
 
@@ -86,4 +87,10 @@ func (r *UserRepository) Insert(user *models.User, password string) (int, error)
 
 	slog.Info("New user registered successfully", "user_id", userID, "email", user.Email)
 	return userID, nil
+}
+
+func (r *UserRepository) MarkAsVerified(email string) error {
+	query := `UPDATE users SET is_verified = true WHERE email = $1`
+	_, err := r.db.Exec(query, email)
+	return err
 }

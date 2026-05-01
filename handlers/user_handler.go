@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"travel-planning/models"
@@ -11,11 +14,13 @@ import (
 
 type UserHandlers struct {
 	UserService *services.UserService
+	AuthService *services.AuthService
 }
 
-func NewUserHandlers(userService *services.UserService) *UserHandlers {
+func NewUserHandlers(userService *services.UserService, authService *services.AuthService) *UserHandlers {
 	return &UserHandlers{
 		UserService: userService,
+		AuthService: authService,
 	}
 }
 
@@ -48,7 +53,26 @@ func (h *UserHandlers) RegisterUserHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	ctx := context.Background()
+	err = h.AuthService.RedisCache.SaveVerificationCode(ctx, req.Email, code)
+	if err != nil {
+		slog.Error("Failed to save verification code in cache", "email", req.Email, "error", err)
+		http.Error(w, "Failed to complete registration. Please try again later.", http.StatusInternalServerError)
+		return
+	}
+
+	go func() {
+		err := h.AuthService.MailService.SendVerificationEmail(req.Email, code)
+		if err != nil {
+			slog.Error("Failed to send verification email", "email", req.Email, "error", err)
+		} else {
+			slog.Info("Verification email sent successfully", "email", req.Email)
+		}
+	}()
+
 	slog.Info("User registered successfully via API", "user_id", userID, "email", req.Email)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{

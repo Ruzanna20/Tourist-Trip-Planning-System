@@ -48,7 +48,7 @@ export default function Dashboard() {
           <div className="relative z-10 bg-slate-950 text-white p-10 md:p-20 md:w-[50%] flex flex-col justify-center" 
                style={{ clipPath: window.innerWidth > 768 ? 'polygon(0 0, 100% 0, 90% 100%, 0% 100%)' : 'none' }}>
             <div className="max-w-xl">
-              <h1 className="text-5xl md:text-7xl font-black leading-none mb-8 capitalize italic tracking-tighter">
+              <h1 className="text-5xl md:text-8xl font-black leading-none mb-8 capitalize  tracking-tighter">
                 {t('dashboard.hero.title')}
               </h1>
               
@@ -105,7 +105,7 @@ export default function Dashboard() {
       <section className="max-w-7xl mx-auto px-4 md:px-8 mt-20">
         <div className="flex items-center gap-6 mb-20">
           <div className="h-[2px] w-12 bg-slate-950" />
-          <h2 className="text-4xl md:text-6xl font-black capitalize italic tracking-tighter text-slate-900">
+          <h2 className="text-4xl md:text-6xl font-black capitalize tracking-tighter text-slate-900">
             {t('dashboard.resources.title')}
           </h2>
           <div className="h-[1px] flex-1 bg-slate-200" />

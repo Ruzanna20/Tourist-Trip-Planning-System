@@ -34,3 +34,13 @@ func (r *RedisCache) Get(ctx context.Context, key string, dest interface{}) erro
 	}
 	return json.Unmarshal([]byte(val), dest)
 }
+
+func (r *RedisCache) SaveVerificationCode(ctx context.Context, email string, code string) error {
+	key := "verify:" + email
+	return r.client.Set(ctx, key, code, 10*time.Minute).Err()
+}
+
+func (r *RedisCache) GetVerificationCode(ctx context.Context, email string) (string, error) {
+	key := "verify:" + email
+	return r.client.Get(ctx, key).Result()
+}
