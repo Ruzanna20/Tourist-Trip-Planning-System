@@ -24,6 +24,7 @@ export default function Attractions() {
   const [selectedCityId, setSelectedCityId] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [minRating, setMinRating] = useState('')
+  const [feeFilter, setFeeFilter] = useState('');
 
   useEffect(() => {
     setLoading(true)
@@ -56,7 +57,13 @@ export default function Attractions() {
     const matchesCity = selectedCityId ? item.city_id === parseInt(selectedCityId) : true
     const matchesCategory = selectedCategory ? item.category === selectedCategory : true
     const matchesRating = minRating ? item.rating >= parseFloat(minRating) : true
-    return matchesSearch && matchesCity && matchesCategory && matchesRating
+    let matchesEntryFee = true;
+      if (feeFilter === 'free') {
+        matchesEntryFee = item.entry_fee === 0 || item.entry_fee === null;
+      } else if (feeFilter === 'paid') {
+        matchesEntryFee = item.entry_fee > 0;
+      }
+    return matchesSearch && matchesCity && matchesCategory && matchesRating && matchesEntryFee
   })
 
   const columns = [
@@ -81,6 +88,11 @@ export default function Attractions() {
       key: 'rating', 
       label: t('attractions.table.rating'), 
       render: (val) => `⭐ ${val.toFixed(1)}` },
+    {
+      key: 'entry_fee',
+      label: t('attractions.table.entry_fee'),
+      render: (fee) => fee > 0 ? `$${fee.toFixed(2)}` : t('attractions.free')
+    },
     { 
       key: 'website', 
       label: t('attractions.table.info'), 
@@ -155,6 +167,15 @@ export default function Attractions() {
             {[4.5, 4.0, 3.5, 3.0].map(r => (
               <option key={r} value={r}>{r}+ {t('attractions.filter.stars')}</option>
             ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="label">{t('attractions.filter.entry_fee')}</label>
+          <select className="input" value={feeFilter} onChange={(e) => setFeeFilter(e.target.value)}>
+            <option value="">{t('attractions.filter.all_fees')}</option>
+            <option value="free">{t('attractions.filter.free_only')}</option>
+            <option value="paid">{t('attractions.filter.paid_only')}</option>
           </select>
         </div>
       </div>

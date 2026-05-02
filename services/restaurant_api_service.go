@@ -40,16 +40,17 @@ type RestaurantAPIResponse struct {
 
 func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float64) ([]*models.Restaurant, error) {
 	ctx := context.Background()
-	cacheKey := fmt.Sprintf("Hotels:%d:%.3f:%.3f", cityID, lat, lon)
+	cacheKey := fmt.Sprintf("Restaurants:%d:%.3f:%.3f", cityID, lat, lon)
 	l := slog.With("city_id", cityID, "lat", lat, "lon", lon)
 
 	var cachedRestaurants []*models.Restaurant
 	err := s.cache.Get(ctx, cacheKey, &cachedRestaurants)
 	if err == nil {
-		l.Info("Hotels retrieved from cache")
+		l.Info("Restaurants retrieved from cache")
 		return cachedRestaurants, nil
 	}
 
+	time.Sleep(1 * time.Second)
 	l.Info("Fetching restaurants from Overpass API")
 
 	searchRadiusM := searchRadiusKm * 1000
@@ -78,13 +79,18 @@ func (s *RestaurantAPIService) FetchRestaurantsByCity(cityID int, lat, lon float
 
 	data := url.Values{}
 	data.Set("data", query)
-	startTime := time.Now()
 
-	resp, err := s.client.Post(
-		restaurantAPIUrl,
-		"application/x-www-form-urlencoded",
-		strings.NewReader(data.Encode()),
-	)
+	req, err := http.NewRequestWithContext(ctx, "POST", restaurantAPIUrl, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create restaurant request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "TravelPlannerApp/1.0 (contact: ruzs3145@gmail.com)")
+	req.Header.Set("Accept", "application/json")
+
+	startTime := time.Now()
+	resp, err := s.client.Do(req)
 
 	if err != nil {
 		l.Error("Overpass Restaurant API request failed", "error", err)

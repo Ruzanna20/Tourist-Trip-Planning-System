@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect,useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
@@ -27,14 +27,32 @@ function WebSocketListener() {
   const { user } = useAuth();
   const { setNotifications, setUnreadCount } = useNotifications(); 
   const { t } = useTranslation();
+  const socketRef = useRef(null);
 
   useEffect(() => {
-    if (!user) return;
+    const userID = user?.user_id || user?.id || user?.ID || user?.UserID;
+    if (!userID) {
+      console.log("WS: No userID found, skipping connection");
+      return;
+    }
 
-    const userID = user.user_id || user.id || user.ID || user.UserID;
-    if (!userID) return;
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        return;
+    }
 
+    console.log(`WS: Attempting to connect for user ${userID}`);
     const socket = new WebSocket(`ws://localhost:8080/ws?userID=${userID}`);
+    socketRef.current = socket;
+
+    socket.onopen = () => {
+      console.log("WS: Connection established");
+    };
+
+    socket.onerror = (error) => {
+      if (socket.readyState !== WebSocket.CLOSED) {
+            console.error("WS: Connection error", error);
+      }
+    };
 
     socket.onmessage = (event) => {
       try {
@@ -79,10 +97,19 @@ function WebSocketListener() {
       }
     };
 
-    return () => {
-      if (socket.readyState === 1) socket.close();
+    socket.onerror = (error) => {
+        if (socket.readyState !== WebSocket.CLOSED) {
+            console.error("WS: Connection error", error);
+        }
     };
-  }, [user, setNotifications, setUnreadCount, t]);
+
+    return () => {
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        console.log("WS: Closing connection...");
+        socket.close();
+      }
+    };
+  }, [user, t, setNotifications, setUnreadCount]);;
 
   return null;
 }

@@ -45,7 +45,15 @@ func (s *CountryAPIService) FetchAllCountries() ([]*models.Country, error) {
 
 	slog.Info("Fetching all countries from REST Countries API", "url", apiURL)
 
-	resp, err := s.client.Get(apiURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "TravelPlanningApp/1.0 (contact: ruzs3145@gmail.com)")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := s.client.Do(req)
 	if err != nil {
 		slog.Error("Failed to reach REST Countries API", "error", err)
 		return nil, fmt.Errorf("failed to fetch data from REST Countries API: %w", err)

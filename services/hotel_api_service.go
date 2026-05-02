@@ -52,6 +52,7 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 		l.Info("Hotels retrieved from cache")
 		return cachedHotels, nil
 	}
+	time.Sleep(1 * time.Second)
 	l.Info("Fetching hotels from Overpass API")
 
 	query := fmt.Sprintf(`
@@ -65,11 +66,16 @@ func (s *HotelAPIService) FetchHotelsByCity(cityID int, lat, lon float64) ([]*mo
 	data := url.Values{}
 	data.Set("data", query)
 
-	resp, err := s.client.Post(
-		hotelAPIURL,
-		"application/x-www-form-urlencoded",
-		strings.NewReader(data.Encode()),
-	)
+	req, err := http.NewRequestWithContext(ctx, "POST", hotelAPIURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create hotel request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "TravelPlannerProject/1.0 (contact: ruzs3145@gmail.com)")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := s.client.Do(req)
 
 	if err != nil {
 		l.Error("Overpass request failed", "error", err)

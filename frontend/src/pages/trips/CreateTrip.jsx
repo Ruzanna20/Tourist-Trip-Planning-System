@@ -185,7 +185,7 @@ export default function CreateTrip() {
                 onClick={() => navigate('/preferences')} 
                 className="text-xs underline hover:text-red-900 mt-1 block"
               >
-                Փոխել նախասիրությունները
+                Փոխել նախընտրությունները
               </button>
             )}
           </div>

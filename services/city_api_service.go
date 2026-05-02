@@ -51,6 +51,8 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]*models.Cit
 		return cachedCities, nil
 	}
 
+	time.Sleep(2 * time.Second)
+
 	l.Info("Fetching cities for country from Overpass API")
 
 	//OverPass QL
@@ -69,11 +71,16 @@ func (s *CityAPIService) FetchCitiesByCountry(countryCode string) ([]*models.Cit
 
 	startTime := time.Now()
 
-	resp, err := s.client.Post(
-		cityAPIURL,
-		"application/x-www-form-urlencoded",
-		strings.NewReader(data.Encode()),
-	)
+	req, err := http.NewRequestWithContext(ctx, "POST", cityAPIURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "TravelPlannerDiploma/1.0 (contact: ruzs3145@gmail.com)")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := s.client.Do(req)
 
 	if err != nil {
 		l.Error("Overpass City API request failed", "error", err)

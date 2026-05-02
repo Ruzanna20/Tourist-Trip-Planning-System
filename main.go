@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+
 	"time"
 
 	"travel-planning/database"
@@ -11,6 +12,7 @@ import (
 	"travel-planning/internal/cache"
 	"travel-planning/internal/kafka"
 	"travel-planning/internal/notifications"
+
 	jobservice "travel-planning/jobService"
 	"travel-planning/server"
 
@@ -207,18 +209,18 @@ func main() {
 	// 	}
 	// }()
 
-	// // Flight Job
-	// flightJob := jobservice.NewFlightJob(seeder)
-	// go func() {
-	// 	slog.Info("Flight Job scheduled", "interval", interval)
-	// 	ticker := time.NewTicker(interval)
-	// 	defer ticker.Stop()
+	// Flight Job
+	flightJob := jobservice.NewFlightJob(seeder)
+	go func() {
+		slog.Info("Flight Job scheduled", "interval", interval)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-	// 	flightJob.RunJob()
-	// 	for range ticker.C {
-	// 		flightJob.RunJob()
-	// 	}
-	// }()
+		flightJob.RunJob()
+		for range ticker.C {
+			flightJob.RunJob()
+		}
+	}()
 
 	authHandlers := handlers.NewAuthHandlers(authService)
 	userHandlers := handlers.NewUserHandlers(userService, authService)

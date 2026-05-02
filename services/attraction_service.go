@@ -66,11 +66,16 @@ func (s *AttractionAPIService) FetchAttractionByCity(cityID int, lat, lon float6
 
 	startTime := time.Now()
 
-	resp, err := s.client.Post(
-		AttractionAPIUrl,
-		"application/x-www-form-urlencoded",
-		strings.NewReader(data.Encode()),
-	)
+	req, err := http.NewRequestWithContext(ctx, "POST", AttractionAPIUrl, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "TravelPlannerApp/1.0 (contact: ruzs3145@gmail.com)")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := s.client.Do(req)
 
 	if err != nil {
 		l.Error("Overpass API request failed", "error", err)
