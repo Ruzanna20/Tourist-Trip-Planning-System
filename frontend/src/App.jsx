@@ -23,38 +23,34 @@ import Preferences from './pages/Preferences';
 import Reviews from './pages/Reviews';
 import Landing from './pages/Landing'; 
 
-function WebSocketListener() {
+function SSEListener() {
   const { user } = useAuth();
   const { setNotifications, setUnreadCount } = useNotifications(); 
   const { t } = useTranslation();
-  const socketRef = useRef(null);
+  const eventSourceRef = useRef(null);
 
   useEffect(() => {
     const userID = user?.user_id || user?.id || user?.ID || user?.UserID;
+    
     if (!userID) {
-      console.log("WS: No userID found, skipping connection");
+      console.log("SSE: No userID found, skipping connection");
       return;
     }
 
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        return;
+    if (eventSourceRef.current) {
+      return;
     }
 
-    console.log(`WS: Attempting to connect for user ${userID}`);
-    const socket = new WebSocket(`ws://localhost:8080/ws?userID=${userID}`);
-    socketRef.current = socket;
+    console.log(`SSE: Attempting to connect for user ${userID}`);
+    
+    const eventSource = new EventSource(`http://localhost:8080/sse?userID=${userID}`);
+    eventSourceRef.current = eventSource;
 
-    socket.onopen = () => {
-      console.log("WS: Connection established");
+    eventSource.onopen = () => {
+      console.log("SSE: Connection established");
     };
 
-    socket.onerror = (error) => {
-      if (socket.readyState !== WebSocket.CLOSED) {
-            console.error("WS: Connection error", error);
-      }
-    };
-
-    socket.onmessage = (event) => {
+    eventSource.onmessage = (event) => {
       try {
         const rawData = JSON.parse(event.data);
         let finalData = rawData;
@@ -93,23 +89,22 @@ function WebSocketListener() {
           setUnreadCount(prev => prev + 1);
         }
       } catch (err) {
-        console.error("WS Message Error:", err);
+        console.error("SSE Message Error:", err);
       }
     };
 
-    socket.onerror = (error) => {
-        if (socket.readyState !== WebSocket.CLOSED) {
-            console.error("WS: Connection error", error);
-        }
+    eventSource.onerror = (error) => {
+      console.error("SSE: Connection error or heartbeat lost", error);
     };
 
     return () => {
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-        console.log("WS: Closing connection...");
-        socket.close();
+      if (eventSourceRef.current) {
+        console.log("SSE: Closing connection...");
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
     };
-  }, [user, t, setNotifications, setUnreadCount]);;
+  }, [user, t, setNotifications, setUnreadCount]);
 
   return null;
 }
@@ -157,7 +152,7 @@ export default function App() {
       <AuthProvider>
         <NotificationProvider>
           <Toaster />
-          <WebSocketListener />
+          <SSEListener />
           <AppRoutes />
         </NotificationProvider>
       </AuthProvider>

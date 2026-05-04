@@ -1,56 +1,61 @@
 package notifications
 
 import (
-	"log/slog"
+	"fmt"
 	"net/http"
 	"sync"
-
-	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 type Hub struct {
-	clients map[int]*websocket.Conn
+	clients map[int]chan []byte
 	mu      sync.Mutex
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		clients: make(map[int]*websocket.Conn),
+		clients: make(map[int]chan []byte),
 	}
 }
 
-func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request, userID int) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
+func (h *Hub) HandleSSE(w http.ResponseWriter, r *http.Request, userID int) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	messageChan := make(chan []byte)
+
 	h.mu.Lock()
-	h.clients[userID] = conn
+	h.clients[userID] = messageChan
 	h.mu.Unlock()
 
+	notify := r.Context().Done()
+
+	go func() {
+		<-notify
+		h.mu.Lock()
+		delete(h.clients, userID)
+		close(messageChan)
+		h.mu.Unlock()
+	}()
+
+	for {
+		msg, ok := <-messageChan
+		if !ok {
+			break
+		}
+		fmt.Fprintf(w, "data: %s\n\n", msg)
+		fmt.Fprintf(w, ": heartbeat\n\n")
+		w.(http.Flusher).Flush()
+	}
 }
 
 func (h *Hub) SendNotification(userID int, data []byte) {
 	h.mu.Lock()
-	conn, exists := h.clients[userID]
+	ch, exists := h.clients[userID]
 	h.mu.Unlock()
 
 	if exists {
-		err := conn.WriteMessage(websocket.TextMessage, data)
-		if err != nil {
-			slog.Error("Failed to send WS message", "userID", userID, "error", err)
-			conn.Close()
-			h.mu.Lock()
-			delete(h.clients, userID)
-			h.mu.Unlock()
-		}
-	} else {
-		slog.Warn("WS: User not connected", "userID", userID)
+		ch <- data
 	}
 }

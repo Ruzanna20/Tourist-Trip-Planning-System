@@ -107,14 +107,14 @@ func (s *AppServer) Start(port string) {
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.GetPreferencesHandler)).Methods("GET")
 	r.HandleFunc("/api/users/preferences", authMiddleware(s.UserHandlers.SetPreferencesHandler)).Methods("POST")
 
-	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/sse", func(w http.ResponseWriter, r *http.Request) {
 		userIDStr := r.URL.Query().Get("userID")
 		userID, err := strconv.Atoi(userIDStr)
 		if err != nil {
-			slog.Error("Invalid userID in WebSocket connection", "error", err)
+			http.Error(w, "Invalid userID", http.StatusBadRequest)
 			return
 		}
-		s.NotificationsHub.HandleWS(w, r, userID)
+		s.NotificationsHub.HandleSSE(w, r, userID)
 	}).Methods("GET")
 
 	slog.Info("Routes registered successfully")
